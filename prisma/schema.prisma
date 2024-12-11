@@ -1,0 +1,180 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Admin {
+  id       String @id
+  username String @unique
+}
+
+model Student {
+  id         String       @id
+  username   String       @unique
+  name       String
+  surname    String
+  email      String       @unique
+  phone      String       @unique
+  address    String
+  img        String
+  accounts   String       @unique
+  sex        UserSex
+  createdAt  DateTime     @default(now())
+  platform   String
+  attendence Attendance[]
+  result Result[]
+  assignment Assignment[]
+  class Class[]
+}
+
+model Teacher {
+  id         String       @id
+  username   String       @unique
+  name       String
+  surname    String
+  email      String       @unique
+  phone      String       @unique
+  address    String
+  img        String
+  accounts   String       @unique
+  sex        UserSex
+  createdAt  DateTime     @default(now())
+  platform   String
+  attendence Attendance[]
+  result Result[]
+  assignment Assignment[]
+  class Class[]
+
+}
+
+model Parent {
+id         String       @id
+  username   String       @unique
+  name       String
+  surname    String
+  email      String       @unique
+  phone      String       @unique
+  address    String
+  img        String
+  accounts   String       @unique
+  sex        UserSex
+  createdAt  DateTime     @default(now())
+  platform   String
+  attendence Attendance[]
+  result Result[]
+  assignment Assignment[]
+  class Class[]
+}
+
+model Grade {
+  id    Int @id @default(autoincrement())
+  level Int @unique
+}
+
+model Class {
+  id            Int            @id @default(autoincrement())
+  bonus         String          
+  accounts      String
+  name         String
+  position     String
+
+  teacherId     String?
+  teacher       Teacher?   @relation(fields: [teacherId], references: [id])
+  studentId     String?
+  student       Student?   @relation(fields: [studentId], references: [id])
+  parentId     String?
+  parent       Parent?   @relation(fields: [parentId], references: [id])
+  
+}
+
+model Subject {
+  id      Int       @id @default(autoincrement())
+  name    String    @unique
+
+}
+
+model Lesson {
+  id         Int          @id @default(autoincrement())
+  socialProfiles       String
+  views String
+  belongsTo String
+  status String
+}
+
+model Exam {
+  id    Int    @id @default(autoincrement())
+  name String
+  spreadsheetLink String
+}
+
+model Assignment {
+  id    Int    @id @default(autoincrement())
+  profileLink String
+
+  teacherId     String?
+  teacher       Teacher?   @relation(fields: [teacherId], references: [id])
+  studentId     String?
+  student       Student?   @relation(fields: [studentId], references: [id])
+  parentId     String?
+  parent       Parent?   @relation(fields: [parentId], references: [id])
+}
+  
+model Result {
+  id      Int    @id @default(autoincrement())
+  socialAccountName    String
+  nameOfPerson String
+  revenue   Int
+
+  teacherId     String?
+  teacher       Teacher?   @relation(fields: [teacherId], references: [id])
+  studentId     String?
+  student       Student?   @relation(fields: [studentId], references: [id])
+  parentId     String?
+  parent       Parent?   @relation(fields: [parentId], references: [id])
+}
+
+model Attendance {
+  id        Int      @id @default(autoincrement())
+  socialAccountName    String
+  nameOfPerson String
+  views   Int
+  teacherId     String?
+  teacher       Teacher?   @relation(fields: [teacherId], references: [id])
+  studentId     String?
+  student       Student?   @relation(fields: [studentId], references: [id])
+  parentId     String?
+  parent       Parent?   @relation(fields: [parentId], references: [id])
+}
+
+model Announcement {
+  id          Int      @id @default(autoincrement())
+  title       String
+  description String
+  date        DateTime
+
+}
+
+model Event {
+  id          Int      @id @default(autoincrement())
+  title       String
+  description String
+  startTime   DateTime
+  endTime     DateTime
+}
+
+enum UserSex {
+  MALE
+  FEMALE
+}
+
+enum Day {
+  MONDAY
+  TUESDAY
+  WEDNESDAY
+  THURSDAY
+  FRIDAY
+}
