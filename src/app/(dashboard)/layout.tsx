@@ -1,6 +1,6 @@
 
-import Menu from "C:/Users/vansh/OneDrive/Desktop/board/src/components/Menu";
-import Navbar from "C:/Users/vansh/OneDrive/Desktop/board/src/components/Navbar";
+import Menu from "@/components/Menu";
+import Navbar from "@/components/Navbar";
 import Image from "next/image";
 import Link from "next/link";
 
