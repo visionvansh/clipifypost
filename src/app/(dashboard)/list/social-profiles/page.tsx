@@ -1,4 +1,3 @@
-
 import FormContainer from "@/components/FormContainer";
 import Pagination from "@/components/Pagination";
 import Table from "../../../../components/Table";
@@ -9,7 +8,7 @@ import {  Lesson, Prisma} from "@prisma/client";
 import Image from "next/image";
 import { auth } from "@clerk/nextjs/server";
 
-import FormModal from "@/components/FormModal";
+
 
 
 

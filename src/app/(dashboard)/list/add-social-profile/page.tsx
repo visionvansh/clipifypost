@@ -8,7 +8,7 @@ import { ITEM_PER_PAGE } from "@/lib/settings";
 import { Prisma, Assignment, Teacher, Student, Parent } from "@prisma/client";
 import Image from "next/image";
 import { auth } from "@clerk/nextjs/server";
-import FormModal from "@/components/FormModal";
+
 
 type AssignmentList = Assignment & { teacher: Teacher } & {student: Student} & {parent: Parent};
 

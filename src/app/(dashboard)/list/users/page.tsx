@@ -1,16 +1,13 @@
-
 import FormContainer from "@/components/FormContainer";
 import Pagination from "@/components/Pagination";
 import Table from "../../../../components/Table";
 import TableSearch from "@/components/TableSearch";
-
 import prisma from "@/lib/prisma";
 import { ITEM_PER_PAGE } from "@/lib/settings";
 import { Class, Prisma, Student } from "@prisma/client";
 import Image from "next/image";
-import Link from "next/link";
 import { auth } from "@clerk/nextjs/server";
-import FormModal from "@/components/FormModal";
+
 
 
 

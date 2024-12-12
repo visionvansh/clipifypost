@@ -8,7 +8,7 @@ import { ITEM_PER_PAGE } from "@/lib/settings";
 import { Class, Prisma } from "@prisma/client";
 import Image from "next/image";
 import { auth } from "@clerk/nextjs/server";
-import FormModal from "@/components/FormModal";
+
 
 
 const ClassListPage = async ({

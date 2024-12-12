@@ -1,8 +1,4 @@
 
-import Announcements from "C:/Users/vansh/OneDrive/Desktop/board/src/components/Announcements";
-import AttendanceChart from "../../../components/AttendanceChart";
-import CountChart from "@/components/CountChart";
-import EventCalendar from "@/components/EventCalendar";
 import FinanceChart from "@/components/FinanceChart";
 import UserCard from "@/components/UserCard";
 import CountChartContainer from "@/components/CountChartContainer";

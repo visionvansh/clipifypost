@@ -7,7 +7,6 @@ import prisma from "@/lib/prisma";
 import { ITEM_PER_PAGE } from "@/lib/settings";
 import { Prisma, Attendance, Teacher } from "@prisma/client";
 import Image from "next/image";
-import FormModal from "@/components/FormModal";
 import { auth } from "@clerk/nextjs/server";
 
 type AssignmentList = Attendance & {

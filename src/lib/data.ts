@@ -1,7 +1,5 @@
 // TEMPORARY DATA
 
-import { platform } from "os";
-import { title } from "process";
 
 export let role = "student";
 

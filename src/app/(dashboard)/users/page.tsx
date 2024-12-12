@@ -1,6 +1,4 @@
 import React from 'react';
-import UserCard from '@/components/UserCard';
-import EventCalendar from '@/components/EventCalendar';
 import RevenueChart from '@/components/RevenueChart';
 import ViewsChart from '@/components/ViewsChart';
 import EventCalendarContainer from '@/components/EventCalendarContainer';
