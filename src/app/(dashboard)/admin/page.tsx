@@ -1,4 +1,3 @@
-
 import FinanceChart from "@/components/FinanceChart";
 import UserCard from "@/components/UserCard";
 import CountChartContainer from "@/components/CountChartContainer";
