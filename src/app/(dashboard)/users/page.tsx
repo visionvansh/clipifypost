@@ -43,7 +43,7 @@ const Manager = ({
               <div className="relative flex flex-col bg-white shadow-lg border border-slate-200 rounded-lg w-full sm:w-96 hover:shadow-xl hover:scale-105 transition-all duration-300 group">
                 <div className="relative h-56 m-2.5 overflow-hidden text-white rounded-md">
                   <Image
-                    src="https://images.unsplash.com/photo-1522202176988-66273c2fd55f?ixlib=rb-4.0.3&amp;ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&amp;auto=format&amp;fit=crop&amp;w=1471&amp;q=80"
+                    src="/success.jpg"
                     alt="card-image"
                     layout="fill" // Ensures the image is responsive
                     objectFit="cover" // Ensures the image covers the area without distortion
@@ -70,15 +70,13 @@ const Manager = ({
               </div>
 
               {/* Icon Between Cards */}
-              <div className="flex items-center justify-center text-5xl text-green-500 animate-bounce">
-                💵
-              </div>
+          
 
               {/* Card 2 */}
               <div className="relative flex flex-col bg-white shadow-lg border border-slate-200 rounded-lg w-full sm:w-96 hover:shadow-xl hover:scale-105 transition-all duration-300 group">
                 <div className="relative h-56 m-2.5 overflow-hidden text-white rounded-md">
                   <Image
-                    src="https://t4.ftcdn.net/jpg/06/75/38/13/360_F_675381310_oAf1f2g9yyPHzAyNhdiz7ujB5dDgpFN8.jpg"
+                    src="/rich.jpg"
                     alt="millionaire-money-image"
                     layout="fill" // Ensures the image is responsive
                     objectFit="cover" // Ensures the image covers the area without distortion

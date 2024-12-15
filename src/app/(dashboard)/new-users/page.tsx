@@ -70,9 +70,7 @@ const Manager = ({
               </div>
 
               {/* Icon Between Cards */}
-              <div className="flex items-center justify-center text-5xl text-green-500 animate-bounce">
-                💵
-              </div>
+          
 
               {/* Card 2 */}
               <div className="relative flex flex-col bg-white shadow-lg border border-slate-200 rounded-lg w-full sm:w-96 hover:shadow-xl hover:scale-105 transition-all duration-300 group">

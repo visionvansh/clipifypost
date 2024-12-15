@@ -1,4 +1,3 @@
-
 import FormContainer from "@/components/FormContainer";
 import Pagination from "@/components/Pagination";
 import Table from "../../../../components/Table";
@@ -9,8 +8,6 @@ import Image from "next/image";
 import { ITEM_PER_PAGE } from "@/lib/settings";
 import { auth } from "@clerk/nextjs/server";
 
-
-
 const TeacherListPage = async ({
   searchParams,
 }: {
@@ -19,44 +16,47 @@ const TeacherListPage = async ({
 
   const { sessionClaims } = await auth();
   const role = (sessionClaims?.metadata as { role?: string })?.role;
+
   const columns = [
-   {
-    header: "Info",
-    accessor: "info",
-  },
-  {
-    header: "Manager ID",
-    accessor: "managerId",
-    className: "hidden md:table-cell",
-  },
-  {
-    header: "Accounts",
-    accessor: "accounts",
-    className: "hidden md:table-cell",
-  },
-  {
-    header: "Platform",
-    accessor: "platform",
-    className: "hidden md:table-cell",
-  },
-  {
-    header: "Phone",
-    accessor: "phone",
-    className: "hidden lg:table-cell",
-  },
-  {
-    header: "Address",
-    accessor: "address",
-    className: "hidden lg:table-cell",
-  },
-  ...(role === "admin"
-    ? [
+    {
+      header: "Info",
+      accessor: "info",
+      className: "min-w-[200px]", // Ensure Info column has enough space
+    },
+    {
+      header: "Manager ID",
+      accessor: "managerId",
+      className: "min-w-[150px]", // Ensure Manager ID has enough space
+    },
+    {
+      header: "Accounts",
+      accessor: "accounts",
+      className: "min-w-[150px]", // Ensure Accounts column has enough space
+    },
+    {
+      header: "Platform",
+      accessor: "platform",
+      className: "min-w-[150px]", // Ensure Platform column has enough space
+    },
+    {
+      header: "Phone",
+      accessor: "phone",
+      className: "min-w-[150px]", // Ensure Phone column has enough space
+    },
+    {
+      header: "Country",
+      accessor: "country",
+      className: "min-w-[150px]", // Ensure Country column has enough space
+    },
+    ...(role === "admin"
+      ? [
         {
           header: "Actions",
           accessor: "action",
+          className: "min-w-[100px]", // Ensure Actions column has enough space
         },
       ]
-    : []),
+      : []),
   ];
 
   const renderRow = (item: Teacher) => (
@@ -65,51 +65,41 @@ const TeacherListPage = async ({
       className="border-b border-gray-200 even:bg-slate-50 text-sm hover:bg-lamaPurpleLight"
     >
       <td className="flex items-center gap-4 p-4">
+        {/* Avatar Section */}
         <Image
           src={item.img || "/noAvatar.png"}
           alt=""
           width={40}
           height={40}
-          className="md:hidden xl:block w-10 h-10 rounded-full object-cover"
+          className="w-10 h-10 rounded-full object-cover"
         />
-           <div className="flex flex-col">
+        <div className="flex flex-col">
           <h3 className="font-semibold">{item.name}</h3>
-          <p className="text-xs text-gray-500">{item?.email}</p>
+          <p className="text-xs text-gray-500">{item.email}</p>
         </div>
       </td>
-      <td className="hidden md:table-cell">{item.id}</td>
-      <td className="hidden md:table-cell">{item.accounts}</td>
-      <td className="hidden md:table-cell">{item.platform}</td>
-      <td className="hidden md:table-cell">{item.phone}</td>
-      <td className="hidden md:table-cell">{item.address}</td>
+      <td className="min-w-[150px]">{item.id}</td>
+      <td className="min-w-[150px]">{item.accounts}</td>
+      <td className="min-w-[150px]">{item.platform}</td>
+      <td className="min-w-[150px]">{item.phone}</td>
+      <td className="min-w-[150px]">{item.address}</td>
       <td>
         <div className="flex items-center gap-2">
-         {/* <Link href={`/list/teachers/${item.id}`}>
-            <button className="w-7 h-7 flex items-center justify-center rounded-full bg-lamaSky">
-              <Image src="/view.png" alt="" width={16} height={16} />
-            </button>
-          </Link>  */}
           {role === "admin" && (
             <>
-            {/* // <button className="w-7 h-7 flex items-center justify-center rounded-full bg-lamaPurple">
-            //   <Image src="/delete.png" alt="" width={16} height={16} />
-            // </button> */}
-            <FormContainer table="manager" type="delete" id={item.id}/>
-            <FormContainer table="manager" type="update" data={item} />
+              <FormContainer table="users" type="delete" />
+              <FormContainer table="users" type="update" />
             </>
           )}
         </div>
       </td>
     </tr>
   );
-  const { page, ...queryParams } = searchParams;
 
+  const { page, ...queryParams } = searchParams;
   const p = page ? parseInt(page) : 1;
 
-  // URL PARAMS CONDITION
-
   const query: Prisma.TeacherWhereInput = {};
-
   if (queryParams) {
     for (const [key, value] of Object.entries(queryParams)) {
       if (value !== undefined) {
@@ -132,28 +122,34 @@ const TeacherListPage = async ({
     }),
     prisma.teacher.count({ where: query }),
   ]);
+
   return (
     <div className="bg-white p-4 rounded-md flex-1 m-4 mt-0">
       {/* TOP */}
-      <div className="flex items-center justify-between">
-        <h1 className="hidden md:block text-lg font-semibold">All Managers</h1>
-        <div className="flex flex-col md:flex-row items-center gap-4 w-full md:w-auto">
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between space-y-4 md:space-y-0">
+        {/* Heading Below Search Bar on Mobile */}
+        <div className="flex flex-col gap-2 w-full md:w-auto">
+          <h1 className="text-lg sm:text-xl md:text-2xl font-bold flex items-center gap-2">
+            All Managers 🧑‍💼
+          </h1>
           <TableSearch />
-          <div className="flex items-center gap-4 self-end">
-            <button className="w-8 h-8 flex items-center justify-center rounded-full bg-lamaYellow">
-              <Image src="/filter.png" alt="" width={14} height={14} />
-            </button>
-            <button className="w-8 h-8 flex items-center justify-center rounded-full bg-lamaYellow">
-              <Image src="/sort.png" alt="" width={14} height={14} />
-            </button>
-            {role === "admin" && (
-              <FormContainer table="manager" type="create"/>
-            )}
-          </div>
+        </div>
+        <div className="flex items-center gap-4 self-end md:mt-0 mt-4">
+          <button className="w-8 h-8 flex items-center justify-center rounded-full bg-lamaYellow">
+            <Image src="/filter.png" alt="" width={14} height={14} />
+          </button>
+          <button className="w-8 h-8 flex items-center justify-center rounded-full bg-lamaYellow">
+            <Image src="/sort.png" alt="" width={14} height={14} />
+          </button>
+          {role === "admin" && <FormContainer table="users" type="create" />}
         </div>
       </div>
+
       {/* LIST */}
-      <Table columns={columns} renderRow={renderRow} data={data} />
+      <div className="overflow-x-auto mt-4">
+        <Table columns={columns} renderRow={renderRow} data={data} />
+      </div>
+
       {/* PAGINATION */}
       <Pagination page={p} count={count} />
     </div>
