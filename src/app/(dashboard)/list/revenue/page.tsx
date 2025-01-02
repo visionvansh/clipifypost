@@ -51,7 +51,7 @@ const ResultListPage = async ({
         <h3 className="font-semibold">{item.socialAccountName}</h3>
       </td>
       <td className="min-w-[150px] p-2 text-left">{item.nameOfPerson}</td>
-      <td className="min-w-[100px] p-2 text-left">{item.revenue}</td>
+      <td className="min-w-[100px] p-2 text-left">${item.revenue}</td>
       {role === "admin" && (
         <td className="min-w-[150px] p-2 text-left">
           <div className="flex gap-2">

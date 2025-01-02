@@ -8,7 +8,7 @@ import { Class, Prisma } from "@prisma/client";
 import Image from "next/image";
 import { auth } from "@clerk/nextjs/server";
 
-const ClassListPage = async ({
+const PositionPage = async ({
   searchParams,
 }: {
   searchParams: { [key: string]: string | undefined };
@@ -145,4 +145,4 @@ const ClassListPage = async ({
   );
 };
 
-export default ClassListPage;
+export default PositionPage;
