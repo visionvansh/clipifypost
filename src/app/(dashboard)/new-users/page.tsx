@@ -3,9 +3,10 @@ import RevenueChart from '@/components/RevenueChart';
 import ViewsChart from '@/components/ViewsChart';
 import EventCalendarContainer from '@/components/EventCalendarContainer';
 import { MdOutlineDashboard } from "react-icons/md";
-import Image from 'next/image'; // Import Image component from Next.js
+import Image from 'next/image';
+import UserCard from '@/components/UserCard';
 
-const Manager = ({
+const NewUsers = ({
   searchParams,
 }: {
   searchParams: { [keys: string]: string | undefined };
@@ -37,16 +38,15 @@ const Manager = ({
               🚀 Path to Success
             </h2>
 
-            <div className="relative flex items-center gap-4 my-4 flex-wrap justify-center">
-              {/* Card Section */}
-              {/* Card 1 */}
-              <div className="relative flex flex-col bg-white shadow-lg border border-slate-200 rounded-lg w-full sm:w-96 hover:shadow-xl hover:scale-105 transition-all duration-300 group">
+            <div className="relative flex items-center gap-4 my-4 justify-center">
+              {/* Card 1: Success */}
+              <div className="relative flex flex-col bg-white shadow-lg border border-slate-200 rounded-lg w-full sm:w-1/2 hover:shadow-xl hover:scale-105 transition-all duration-300 group">
                 <div className="relative h-56 m-2.5 overflow-hidden text-white rounded-md">
                   <Image
                     src="/success.jpg"
                     alt="card-image"
-                    layout="fill" // Ensures the image is responsive
-                    objectFit="cover" // Ensures the image covers the area without distortion
+                    layout="fill"
+                    objectFit="cover"
                     className="group-hover:scale-110 transition-transform duration-300"
                   />
                 </div>
@@ -69,17 +69,14 @@ const Manager = ({
                 </div>
               </div>
 
-              {/* Icon Between Cards */}
-          
-
-              {/* Card 2 */}
-              <div className="relative flex flex-col bg-white shadow-lg border border-slate-200 rounded-lg w-full sm:w-96 hover:shadow-xl hover:scale-105 transition-all duration-300 group">
+              {/* Card 2: Earn */}
+              <div className="relative flex flex-col bg-white shadow-lg border border-slate-200 rounded-lg w-full sm:w-1/2 hover:shadow-xl hover:scale-105 transition-all duration-300 group">
                 <div className="relative h-56 m-2.5 overflow-hidden text-white rounded-md">
                   <Image
                     src="/rich.jpg"
                     alt="millionaire-money-image"
-                    layout="fill" // Ensures the image is responsive
-                    objectFit="cover" // Ensures the image covers the area without distortion
+                    layout="fill"
+                    objectFit="cover"
                     className="group-hover:scale-110 transition-transform duration-300"
                   />
                 </div>
@@ -109,8 +106,26 @@ const Manager = ({
           <EventCalendarContainer searchParams={searchParams} />
         </div>
       </div>
+
+      {/* Leaderboard Section */}
+      <div className="mt-8 flex justify-center">
+        <div className="bg-white border-4 border-blue-500 rounded-lg shadow-lg p-4 max-w-2xl">
+          <h2 className="text-2xl font-bold text-center text-gray-800 mb-4">
+            🏆 Leaderboard
+          </h2>
+          <div className="relative w-full">
+            <Image
+              src="/leaderboard.jpg"
+              alt="Leaderboard"
+              width={800} // Adjust width to match the image size
+              height={600} // Adjust height to match the image size
+              className="rounded-lg"
+            />
+          </div>
+        </div>
+      </div>
     </>
   );
 };
 
-export default Manager;
+export default NewUsers;

@@ -2,7 +2,6 @@ import React from 'react';
 import RevenueChart from '@/components/RevenueChart';
 import ViewsChart from '@/components/ViewsChart';
 import EventCalendarContainer from '@/components/EventCalendarContainer';
-import PositionPage from '@/app/(dashboard)/list/positions/page'; // Import the PositionPage component
 import { MdOutlineDashboard } from "react-icons/md";
 import Image from 'next/image';
 import UserCard from '@/components/UserCard';
@@ -111,8 +110,21 @@ const Manager = ({
       </div>
 
       {/* Leaderboard Section */}
-      <div className="mt-8">
-        <PositionPage searchParams={searchParams} />
+      <div className="mt-8 flex justify-center">
+        <div className="bg-white border-4 border-blue-500 rounded-lg shadow-lg p-4 max-w-2xl">
+          <h2 className="text-2xl font-bold text-center text-gray-800 mb-4">
+            🏆 Leaderboard
+          </h2>
+          <div className="relative w-full">
+            <Image
+              src="/leaderboard.jpg"
+              alt="Leaderboard"
+              width={800} // Adjust width to match the image size
+              height={600} // Adjust height to match the image size
+              className="rounded-lg"
+            />
+          </div>
+        </div>
       </div>
     </>
   );
