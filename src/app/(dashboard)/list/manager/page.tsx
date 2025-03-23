@@ -13,59 +13,27 @@ const TeacherListPage = async ({
 }: {
   searchParams: { [key: string]: string | undefined };
 }) => {
-
   const { sessionClaims } = await auth();
   const role = (sessionClaims?.metadata as { role?: string })?.role;
 
   const columns = [
-    {
-      header: "Info",
-      accessor: "info",
-      className: "min-w-[200px]", // Ensure Info column has enough space
-    },
-    {
-      header: "Manager ID",
-      accessor: "managerId",
-      className: "min-w-[150px]", // Ensure Manager ID has enough space
-    },
-    {
-      header: "Accounts",
-      accessor: "accounts",
-      className: "min-w-[150px]", // Ensure Accounts column has enough space
-    },
-    {
-      header: "Platform",
-      accessor: "platform",
-      className: "min-w-[150px]", // Ensure Platform column has enough space
-    },
-    {
-      header: "Phone",
-      accessor: "phone",
-      className: "min-w-[150px]", // Ensure Phone column has enough space
-    },
-    {
-      header: "Country",
-      accessor: "country",
-      className: "min-w-[150px]", // Ensure Country column has enough space
-    },
+    { header: "Info", accessor: "info", className: "min-w-[200px]" },
+    { header: "Manager ID", accessor: "managerId", className: "min-w-[150px]" },
+    { header: "Accounts", accessor: "accounts", className: "min-w-[150px]" },
+    { header: "Platform", accessor: "platform", className: "min-w-[150px]" },
+    { header: "Phone", accessor: "phone", className: "min-w-[150px]" },
+    { header: "Country", accessor: "country", className: "min-w-[150px]" },
     ...(role === "admin"
-      ? [
-        {
-          header: "Actions",
-          accessor: "action",
-          className: "min-w-[100px]", // Ensure Actions column has enough space
-        },
-      ]
+      ? [{ header: "Actions", accessor: "action", className: "min-w-[100px]" }]
       : []),
   ];
 
   const renderRow = (item: Teacher) => (
     <tr
       key={item.id}
-      className="border-b border-gray-200 even:bg-slate-50 text-sm hover:bg-lamaPurpleLight"
+      className="border-b border-gray-700 even:bg-gray-800 text-sm hover:bg-gray-700 transition-all"
     >
       <td className="flex items-center gap-4 p-4">
-        {/* Avatar Section */}
         <Image
           src={item.img || "/noAvatar.png"}
           alt=""
@@ -74,15 +42,15 @@ const TeacherListPage = async ({
           className="w-10 h-10 rounded-full object-cover"
         />
         <div className="flex flex-col">
-          <h3 className="font-semibold">{item.name}</h3>
+          <h3 className="font-semibold text-gray-300">{item.name}</h3>
           <p className="text-xs text-gray-500">{item.email}</p>
         </div>
       </td>
-      <td className="min-w-[150px]">{item.id}</td>
-      <td className="min-w-[150px]">{item.accounts}</td>
-      <td className="min-w-[150px]">{item.platform}</td>
-      <td className="min-w-[150px]">{item.phone}</td>
-      <td className="min-w-[150px]">{item.address}</td>
+      <td className="min-w-[150px] text-gray-400">{item.id}</td>
+      <td className="min-w-[150px] text-gray-400">{item.accounts}</td>
+      <td className="min-w-[150px] text-gray-400">{item.platform}</td>
+      <td className="min-w-[150px] text-gray-400">{item.phone}</td>
+      <td className="min-w-[150px] text-gray-400">{item.address}</td>
       <td>
         <div className="flex items-center gap-2">
           {role === "admin" && (
@@ -102,14 +70,8 @@ const TeacherListPage = async ({
   const query: Prisma.TeacherWhereInput = {};
   if (queryParams) {
     for (const [key, value] of Object.entries(queryParams)) {
-      if (value !== undefined) {
-        switch (key) {
-          case "search":
-            query.name = { contains: value, mode: "insensitive" };
-            break;
-          default:
-            break;
-        }
+      if (value !== undefined && key === "search") {
+        query.name = { contains: value, mode: "insensitive" };
       }
     }
   }
@@ -124,34 +86,35 @@ const TeacherListPage = async ({
   ]);
 
   return (
-    <div className="bg-white p-4 rounded-md flex-1 m-4 mt-0">
-      {/* TOP */}
-      <div className="flex flex-col md:flex-row items-start md:items-center justify-between space-y-4 md:space-y-0">
-        {/* Heading Below Search Bar on Mobile */}
-        <div className="flex flex-col gap-2 w-full md:w-auto">
-          <h1 className="text-lg sm:text-xl md:text-2xl font-bold flex items-center gap-2">
-            All Managers 🧑‍💼
-          </h1>
-          <TableSearch />
+    <div className="bg-gray-900 min-h-screen w-full flex justify-center">
+      <div className="bg-gray-900 p-4 rounded-md flex-1 m-4 mt-0 max-w-7xl w-full">
+        {/* TOP */}
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between space-y-4 md:space-y-0">
+          <div className="flex flex-col gap-2 w-full md:w-auto">
+            <h1 className="text-lg sm:text-xl md:text-2xl font-bold flex items-center gap-2 text-gray-300">
+              All Managers 🧑‍💼
+            </h1>
+            <TableSearch />
+          </div>
+          <div className="flex items-center gap-4 self-end md:mt-0 mt-4">
+            <button className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-700 hover:bg-gray-600 transition-all">
+              <Image src="/filter.png" alt="" width={14} height={14} />
+            </button>
+            <button className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-700 hover:bg-gray-600 transition-all">
+              <Image src="/sort.png" alt="" width={14} height={14} />
+            </button>
+            {role === "admin" && <FormContainer table="users" type="create" />}
+          </div>
         </div>
-        <div className="flex items-center gap-4 self-end md:mt-0 mt-4">
-          <button className="w-8 h-8 flex items-center justify-center rounded-full bg-lamaYellow">
-            <Image src="/filter.png" alt="" width={14} height={14} />
-          </button>
-          <button className="w-8 h-8 flex items-center justify-center rounded-full bg-lamaYellow">
-            <Image src="/sort.png" alt="" width={14} height={14} />
-          </button>
-          {role === "admin" && <FormContainer table="users" type="create" />}
+
+        {/* LIST */}
+        <div className="overflow-x-auto mt-4 bg-gray-900 rounded-md">
+          <Table columns={columns} renderRow={renderRow} data={data} />
         </div>
-      </div>
 
-      {/* LIST */}
-      <div className="overflow-x-auto mt-4">
-        <Table columns={columns} renderRow={renderRow} data={data} />
+        {/* PAGINATION */}
+        <Pagination page={p} count={count} />
       </div>
-
-      {/* PAGINATION */}
-      <Pagination page={p} count={count} />
     </div>
   );
 };

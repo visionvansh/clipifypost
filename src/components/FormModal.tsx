@@ -173,16 +173,7 @@ const forms: {
     // TODO OTHER LIST ITEMS
   ),
 
-  announcement: (setOpen, type, data, relatedData) => (
-    <AnnouncementForm
-      type={type}
-      data={data}
-      setOpen={setOpen}
-    
-    />
-    
-    // TODO OTHER LIST ITEMS
-  ),
+ 
   
 
 };

@@ -15,12 +15,12 @@ const AnnouncementList = async ({ dateParam }: { dateParam: string | undefined }
 
   return data.map((announcement) => (
     <div
-      className="p-5 rounded-md border-2 border-gray-100 border-t-4 odd:border-t-lamaSky even:border-t-lamaPurple"
+      className="p-5 rounded-md border-2 border-gray-700 border-t-4 odd:border-t-cyan-500 even:border-t-purple-500 bg-gray-900 shadow-md"
       key={announcement.id}
     >
       <div className="flex items-center justify-between">
-        <h1 className="font-semibold text-gray-600">{announcement.title}</h1>
-        <span className="text-gray-300 text-xs">
+        <h1 className="font-semibold text-white">{announcement.title}</h1>
+        <span className="text-gray-400 text-xs">
           {announcement.date.toLocaleTimeString("en-UK", {
             hour: "2-digit",
             minute: "2-digit",

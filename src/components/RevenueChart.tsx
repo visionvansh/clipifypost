@@ -1,54 +1,69 @@
 import Image from "next/image";
 import prisma from "@/lib/prisma";
 import { auth } from "@clerk/nextjs/server";
-import { Attendance, Prisma } from "@prisma/client";
+import { Result, Prisma } from "@prisma/client";
 
-const ViewsChart = async ({ type }: { type: "Your Revenue" }) => {
+const RevenueChart = async ({ type }: { type: "Your Revenue" }) => {
   const { sessionClaims, userId } = await auth();
   const role = (sessionClaims?.metadata as { role?: string })?.role;
 
   // Initialize query object
   const query: Prisma.ResultWhereInput = {};
-  query.teacher = {}
+  query.teacher = {};
+
   // Adjust query based on role
   switch (role) {
     case "manager":
-      query.teacherId = userId!; // Assuming Attendance has a teacherId field
+      query.teacherId = userId!;
       break;
-
     case "users":
-      query.studentId = userId!; // Assuming Attendance has a studentId field
+      query.studentId = userId!;
       break;
-    
-      case "new-users":
-        query.parentId = userId!; // Assuming Attendance has a studentId field
-        break;  
-
+    case "new-users":
+      query.parentId = userId!;
+      break;
     default:
-      break
+      break;
   }
 
   // Fetch data from Prisma
   const data = await prisma.result.findMany({
     where: query,
-    select: { revenue: true }, // Adjust based on your schema fields
+    select: { revenue: true },
   });
 
-  // Calculate total views (if applicable)
-  const totalViews = data.reduce((acc, item) => acc + (item.revenue || 0), 0);
+  // Calculate total revenue
+  const totalRevenue = data.reduce((acc, item) => acc + (item.revenue || 0), 0);
+
+  // Format revenue number with global comma style
+  const formattedRevenue = `$${totalRevenue.toLocaleString("en-US")}`;
 
   return (
-    <div className="rounded-2xl odd:bg-lamaPurple even:bg-lamaYellow p-4 flex-1 min-w-[130px]">
+    <div className="bg-gray-900 rounded-xl p-3 sm:p-4 border border-gray-700 shadow-md w-full flex flex-col">
+      {/* Top Header Row */}
       <div className="flex justify-between items-center">
-        <span className="text-[10px] bg-white px-2 py-1 rounded-full text-green-600">
+        <span className="text-xs sm:text-sm bg-green-600 px-2 sm:px-3 py-1 rounded-full text-white font-semibold shadow-md">
           This Month
         </span>
-        <Image src="/more.png" alt="More" width={20} height={20} />
+        <Image
+          src="/more.png"
+          alt="More"
+          width={18}
+          height={18}
+          className="opacity-70 hover:opacity-100 transition-opacity duration-200 cursor-pointer sm:w-[22px] sm:h-[22px]"
+        />
       </div>
-      <h1 className="text-2xl font-semibold my-4">${totalViews}</h1>
-      <h2 className="capitalize text-sm font-medium text-gray-500">{type}</h2>
+
+      {/* Revenue Amount */}
+      <h1 className="text-xl sm:text-3xl font-bold my-2 sm:my-3 text-green-400 tracking-wide break-words">
+        {formattedRevenue}
+      </h1>
+
+      <h2 className="capitalize text-sm sm:text-base font-medium text-gray-400">
+        {type}
+      </h2>
     </div>
   );
 };
 
-export default ViewsChart;
+export default RevenueChart;

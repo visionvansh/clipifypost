@@ -1,44 +1,36 @@
 import FinanceChart from "@/components/FinanceChart";
 import UserCard from "@/components/UserCard";
-import CountChartContainer from "@/components/CountChartContainer";
 import AttendanceChartContainer from "@/components/AttendenceChartContainer";
-import EventCalendarContainer from "@/components/EventCalendarContainer";
+import { FaUserShield } from "react-icons/fa"; // Importing Admin Icon
 
-const AdminPage = ({
-  searchParams,
-}: {
-  searchParams: { [keys: string]: string | undefined };
-}) => {
+const AdminPage = () => {
   return (
-    <div className="p-4 flex gap-4 flex-col md:flex-row">
-      {/* LEFT */}
-      <div className="w-full lg:w-2/3 flex flex-col gap-8">
-        {/* USER CARDS */}
-        <div className="flex gap-4 justify-between flex-wrap">
-          <UserCard type="admin" />
-          <UserCard type="manager" />
-          <UserCard type="user" />
-          <UserCard type="newUser" />
+    <div className="p-4 flex flex-col gap-6 bg-black text-white min-h-screen">
+      {/* 🔹 Admin Page Heading - Removed Greyish BG */}
+      <div className="flex items-center gap-3 text-white text-3xl font-extrabold p-4 rounded-lg">
+        <FaUserShield className="text-blue-500 text-4xl" /> {/* Admin Icon */}
+        <h1 className="tracking-wide">Admin Dashboard</h1>
+      </div>
+
+      {/* 🔹 User Cards - Now in one row */}
+      <div className="flex gap-4 justify-between">
+        <UserCard type="admin" />
+        <UserCard type="manager" />
+        <UserCard type="user" />
+        <UserCard type="newUser" />
+      </div>
+
+      {/* 🔹 Charts Section - Attendance & Finance in One Line */}
+      <div className="flex gap-4">
+        {/* Attendance Chart */}
+        <div className="w-1/2 h-[450px] bg-gray-900 p-4 rounded-lg">
+          <AttendanceChartContainer />
         </div>
-        {/* MIDDLE CHARTS */}
-        <div className="flex gap-4 flex-col lg:flex-row">
-          {/* COUNT CHART */}
-          <div className="w-full lg:w-1/3 h-[450px]">
-            <CountChartContainer />
-          </div>
-          {/* ATTENDANCE CHART */}
-          <div className="w-full lg:w-2/3 h-[450px]">
-            <AttendanceChartContainer />
-          </div>
-        </div>
-        {/* BOTTOM CHART */}
-        <div className="w-full h-[500px]">
+
+        {/* Finance Chart */}
+        <div className="w-1/2 h-[450px] bg-gray-900 p-4 rounded-lg">
           <FinanceChart />
         </div>
-      </div>
-      {/* RIGHT */}
-      <div className="w-full lg:w-1/3 flex flex-col gap-8">
-        <EventCalendarContainer searchParams={searchParams} />
       </div>
     </div>
   );

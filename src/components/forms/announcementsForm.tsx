@@ -1,127 +1,67 @@
-
 "use client";
 
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
-import InputField from "../InputField";
-import Image from "next/image";
-import { Dispatch, SetStateAction, useEffect, useState } from "react";
-import { announcementSchema, AnnouncementSchema } from "@/lib/formValidaionSchema";
-import { useFormState } from "react-dom";
-import { createAnnouncement, updateAnnouncement } from "@/lib/action";
-import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { toast } from "react-toastify";
-import { CldUploadWidget } from "next-cloudinary";
 
-const PositionForm = ({
-  type,
-  data,
-  setOpen,
-  relatedData,
-}: {
-  type: "create" | "update";
-  data?: any;
-  setOpen: Dispatch<SetStateAction<boolean>>;
-  relatedData?: any;
-}) => {
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-  } = useForm<AnnouncementSchema>({
-    resolver: zodResolver(announcementSchema),
-  });
+interface PositionFormProps {
+  onSave: (data: { userId: string; username: string; paymentMethod: string; paymentDetails: string }) => void;
+  userId?: string;
+  username: string;
+}
 
-  const [state, formAction] = useFormState(
-    type === "create" ? createAnnouncement : updateAnnouncement,
-    {
-      success: false,
-      error: false,
+export default function PositionForm({ onSave, userId, username }: PositionFormProps) {
+  const [paymentMethod, setPaymentMethod] = useState("");
+  const [paymentDetails, setPaymentDetails] = useState("");
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!paymentMethod || !paymentDetails) {
+      toast.error("Please fill in all fields!");
+      return;
     }
-  );
 
-  const onSubmit = handleSubmit(async (formData) => {
-    try {
-      console.log("Submitting form data:", formData);
-      await formAction(formData);
-      
-      // Don't check result.error since formAction returns void
-      // Instead, rely on the state updates
-      if (state.error) {
-        toast.error("Failed to save announcement");
-      }
-    } catch (error) {
-      console.error("Form submission error:", error);
-      toast.error("An error occurred");
-    }
-  });
-
-  const router = useRouter();
-
-  useEffect(() => {
-    if (state.success) {
-      toast(`Announcement has been ${type === "create" ? "announced" : "updated"}!`);
-      setOpen(false);
-      router.refresh();
-    }
-  }, [state, router, type, setOpen]);
+    onSave({ userId: userId || "", username, paymentMethod, paymentDetails });
+  };
 
   return (
-    <form className="flex flex-col gap-8" onSubmit={onSubmit}>
-      <h1 className="text-xl font-semibold">
-        {type === "create" ? "Create a new announcement" : "Update the announcement"}
-      </h1>
-      <span className="text-xs text-gray-400 font-medium">
-         Information
-      </span>
-      <div className="flex justify-between flex-wrap gap-4">
-        <InputField
-          label="Title"
-          name="title"
-          defaultValue={data?.title}
-          register={register}
-          error={errors.title}
-        />
-        <InputField
-          label="Description"
-          name="description"
-          defaultValue={data?.description}
-          register={register}
-          error={errors.description}
-        />
+    <div className="bg-gray-700 p-6 rounded-md shadow-md">
+      <h2 className="text-xl font-semibold mb-4">Select Your Payment Method</h2>
+      <form onSubmit={handleSubmit}>
+        <label className="block mb-2 font-semibold">Payment Method:</label>
+        <select
+          className="w-full p-2 rounded-md bg-gray-800 text-white border border-gray-600"
+          value={paymentMethod}
+          onChange={(e) => setPaymentMethod(e.target.value)}
+        >
+          <option value="">Select a method</option>
+          <option value="UPI">UPI</option>
+          <option value="PayPal">PayPal</option>
+          <option value="Bitcoin">Bitcoin</option>
+          <option value="Ethereum">Ethereum</option>
+        </select>
 
-          <InputField
-            label="Date"
-            name="date"
-            defaultValue={data?.date}
-            register={register}
-            error={errors?.date}
-            type="date"
-          />
-
-      </div>
-      <div className="flex justify-between flex-wrap gap-4">
-        {data && (
-          <InputField
-            label="Id"
-            name="id"
-            defaultValue={data?.id}
-            register={register}
-            error={errors?.id}
-            hidden
-          />
+        {paymentMethod && (
+          <div className="mt-4">
+            <label className="block mb-2 font-semibold">Enter {paymentMethod} Details:</label>
+            <input
+              type="text"
+              className="w-full p-2 rounded-md bg-gray-800 text-white border border-gray-600"
+              placeholder={`Enter your ${paymentMethod} details`}
+              value={paymentDetails}
+              onChange={(e) => setPaymentDetails(e.target.value)}
+              required
+            />
+          </div>
         )}
 
-     
-      </div>
-      {state.error && (
-        <span className="text-red-500">Something went wrong!</span>
-      )}
-      <button className="bg-blue-400 text-white p-2 rounded-md">
-        {type === "create" ? "Create" : "Update"}
-      </button>
-    </form>
+        <button
+          type="submit"
+          className="w-full mt-4 bg-blue-500 hover:bg-blue-600 text-white py-2 rounded-md"
+        >
+          Save Payment
+        </button>
+      </form>
+    </div>
   );
-};
-
-export default PositionForm;
+}

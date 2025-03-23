@@ -1,130 +1,99 @@
-import React from 'react';
-import RevenueChart from '@/components/RevenueChart';
-import ViewsChart from '@/components/ViewsChart';
-import EventCalendarContainer from '@/components/EventCalendarContainer';
+import React from "react";
+import RevenueChart from "@/components/RevenueChart";
+import ViewsChart from "@/components/ViewsChart";
 import { MdOutlineDashboard } from "react-icons/md";
-import Image from 'next/image';
-import UserCard from '@/components/UserCard';
+import Image from "next/image";
+import RevFetch from "@/components/VewChart";
+import RevChart from "@/components/RevChart";
+import LifetimeRevenueCard from "@/components/LifetimeRevenue";
+import LifetimeViews from "@/components/lifetimeViews";
 
-const Users = ({
-  searchParams,
-}: {
-  searchParams: { [keys: string]: string | undefined };
-}) => {
+const Users = ({ searchParams }: { searchParams: { [keys: string]: string | undefined } }) => {
   return (
-    <>
+    <div className="bg-black min-h-screen w-full flex flex-col p-4 md:p-6 text-white overflow-y-auto">
       {/* Dashboard Heading */}
-      <div className="ml-2 flex items-center space-x-2">
-        <MdOutlineDashboard className="text-5xl text-blue-600" />
-        <h1 className="text-4xl font-extrabold tracking-wide text-gray-800 font-[Poppins]">
-          DASHBOARD
-        </h1>
+      <div className="flex items-center space-x-2 md:space-x-3">
+        <MdOutlineDashboard className="text-4xl md:text-5xl text-yellow-500" />
+        <h1 className="text-3xl md:text-4xl font-extrabold tracking-wide font-[Poppins]">DASHBOARD</h1>
       </div>
 
-      <h2 className="text-2xl font-bold text-gray-700 mb-4 tracking-wide mt-5">
+      <h2 className="text-xl md:text-2xl font-bold text-gray-300 mt-4 md:mt-6 mb-3 md:mb-4 tracking-wide">
         🌟 Overview
       </h2>
 
-      <div className="ml-8 mr-5 flex gap-4 justify-between flex-wrap">
+      {/* Cards Row (ViewsChart, RevenueChart, LifetimeRevenueCard, LifetimeViews) */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 w-full">
         <ViewsChart type="Your View" />
         <RevenueChart type="Your Revenue" />
+        <LifetimeRevenueCard />
+        <LifetimeViews />
       </div>
 
-      <div className="p-4 flex gap-4 flex-col xl:flex-row ml-8">
-        {/* LEFT */}
-        <div className="w-full xl:w-2/3">
-          <div className="h-full bg-white p-4 rounded-md">
-            <h2 className="text-2xl font-bold text-gray-800 mb-6">
-              🚀 Path to Success
-            </h2>
-
-            <div className="relative flex items-center gap-4 my-4 justify-center">
-              {/* Card 1: Success */}
-              <div className="relative flex flex-col bg-white shadow-lg border border-slate-200 rounded-lg w-full sm:w-1/2 hover:shadow-xl hover:scale-105 transition-all duration-300 group">
-                <div className="relative h-56 m-2.5 overflow-hidden text-white rounded-md">
-                  <Image
-                    src="/success.jpg"
-                    alt="card-image"
-                    layout="fill"
-                    objectFit="cover"
-                    className="group-hover:scale-110 transition-transform duration-300"
-                  />
-                </div>
-                <div className="p-4">
-                  <div className="mb-4 rounded-full bg-cyan-600 py-0.5 px-2.5 border border-transparent text-xs text-white transition-all shadow-sm w-20 text-center">
-                    #workhard
-                  </div>
-                  <h6 className="mb-2 text-slate-800 text-xl font-semibold">
-                    🚀 Post Daily & Earn Big! 💰
-                  </h6>
-                  <p className="text-slate-600 leading-normal font-semibold">
-                    Consistency pays off! Just post 9-10 reels a day, and you
-                    can earn $20 for every 100K views. 🎯 It’s a golden
-                    opportunity to turn your creativity into cash. 🎥✨
-                    <br />
-                    Edit, post, repeat—and watch your views and earnings
-                    skyrocket! 🌟 Don’t wait, start today and grab your share of
-                    success! 📈🔥
-                  </p>
-                </div>
-              </div>
-
-              {/* Card 2: Earn */}
-              <div className="relative flex flex-col bg-white shadow-lg border border-slate-200 rounded-lg w-full sm:w-1/2 hover:shadow-xl hover:scale-105 transition-all duration-300 group">
-                <div className="relative h-56 m-2.5 overflow-hidden text-white rounded-md">
-                  <Image
-                    src="/rich.jpg"
-                    alt="millionaire-money-image"
-                    layout="fill"
-                    objectFit="cover"
-                    className="group-hover:scale-110 transition-transform duration-300"
-                  />
-                </div>
-                <div className="p-4">
-                  <div className="mb-4 rounded-full bg-green-600 py-0.5 px-2.5 border border-transparent text-xs text-white transition-all shadow-sm w-20 text-center">
-                    #dreambig
-                  </div>
-                  <h6 className="mb-2 text-slate-800 text-xl font-semibold">
-                    💎 Turn Reels into Riches! 💸
-                  </h6>
-                  <p className="text-slate-600 leading-normal font-semibold">
-                    Did you know posting reels could be your ticket to becoming
-                    a millionaire? 💵🔥 With consistent effort and creativity,
-                    the numbers add up fast. 🌟📲 <br />
-                    Start small, dream big, and let your reels pave the way to
-                    financial freedom. 🏆💼 Your millionaire journey starts now!
-                    🚀✨
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* RIGHT */}
-        <div className="w-full xl:w-1/3 flex flex-col gap-8">
-          <EventCalendarContainer searchParams={searchParams} />
-        </div>
+      {/* Graphs Row (RevFetch & RevChart) */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4 w-full mt-4 md:mt-6">
+        <RevFetch />
+        <RevChart />
       </div>
 
-      {/* Leaderboard Section */}
-      <div className="mt-8 flex justify-center">
-        <div className="bg-white border-4 border-blue-500 rounded-lg shadow-lg p-4 max-w-2xl">
-          <h2 className="text-2xl font-bold text-center text-gray-800 mb-4">
-            🏆 Leaderboard
-          </h2>
-          <div className="relative w-full">
-            <Image
-              src="/leaderboard.jpg"
-              alt="Leaderboard"
-              width={800} // Adjust width to match the image size
-              height={600} // Adjust height to match the image size
-              className="rounded-lg"
-            />
-          </div>
-        </div>
+      {/* Motivational Cards Section */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-6 md:mt-8">
+        <MotivationCard
+          image="/success.jpg"
+          tag="#workhard"
+          title="🚀 Post Daily & Earn Big! 💰"
+          description="Success isn’t just about talent; it’s about consistency. If you’re willing to put in the effort every single day, you’ll see incredible results. Post 9-10 reels daily and watch your numbers grow! The key is persistence—every piece of content you create gets you one step closer to your goals. Keep pushing, keep grinding, and the rewards will come! 📈🔥"
+          tagColor="bg-cyan-600"
+        />
+
+        <MotivationCard
+          image="/rich.jpg"
+          tag="#dreambig"
+          title="💎 Turn Reels into Riches! 💸"
+          description="Every millionaire was once a beginner. The difference between success and failure is action. Start creating, keep posting, and stay consistent! The online world is full of opportunities, and social media is your stage. Don’t wait for the perfect moment—start now. The content you post today could be the foundation of your financial freedom tomorrow! 🚀✨"
+          tagColor="bg-green-600"
+        />
+
+        <MotivationCard
+          image="/hustle.jpg"
+          tag="#hustle"
+          title="🔥 Stay Focused, Stay Grinding!"
+          description="Greatness isn’t built overnight—it’s a daily hustle. The most successful people in the world aren’t the ones who wait for opportunities, but the ones who create them. Hustle every day, push past your limits, and never settle. The grind is tough, but the rewards are worth it. If you want a life others dream about, you need to work while they sleep! 💯"
+          tagColor="bg-red-600"
+        />
+
+        <MotivationCard
+          image="/consistency.webp"
+          tag="#consistency"
+          title="📅 Consistency is Key!"
+          description="Success is not a one-time event; it’s a daily habit. The most powerful thing you can do is show up every single day, even when you don’t feel like it. Whether it's content creation, business, or self-improvement, consistency beats talent when talent doesn’t work hard. Stay patient, stay disciplined, and keep moving forward—your future self will thank you! 🚀"
+          tagColor="bg-purple-600"
+        />
       </div>
-    </>
+    </div>
+  );
+};
+
+// Reusable Motivation Card Component
+const MotivationCard = ({ image, tag, title, description, tagColor }: any) => {
+  return (
+    <div className="relative flex flex-col bg-gray-900 shadow-lg border border-gray-700 rounded-lg w-full sm:w-auto hover:shadow-xl hover:scale-105 transition-all duration-300">
+      <div className="relative h-40 md:h-56 m-3 overflow-hidden rounded-md">
+        <Image
+          src={image}
+          alt={title}
+          layout="fill"
+          objectFit="cover"
+          className="group-hover:scale-110 transition-transform duration-300"
+        />
+      </div>
+      <div className="p-3 md:p-4">
+        <div className={`mb-2 md:mb-3 ${tagColor} py-1 px-2 md:px-3 rounded-full text-xs text-white text-center w-20 md:w-24`}>
+          {tag}
+        </div>
+        <h6 className="text-md md:text-lg font-semibold text-white">{title}</h6>
+        <p className="text-gray-400 text-sm md:text-base leading-normal font-medium">{description}</p>
+      </div>
+    </div>
   );
 };
 

@@ -27,8 +27,6 @@ const AssignmentListPage = async ({
           case "search":
             query.profileLink = { contains: value, mode: "insensitive" };
             break;
-          default:
-            break;
         }
       }
     }
@@ -46,8 +44,6 @@ const AssignmentListPage = async ({
     case "new-users":
       query.parentId = userId!;
       break;
-    default:
-      break;
   }
 
   const [data, count] = await prisma.$transaction([
@@ -60,47 +56,56 @@ const AssignmentListPage = async ({
   ]);
 
   return (
-    <div className="bg-white p-4 rounded-md flex-1 m-4 mt-0">
-      {/* TOP SECTION */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-    
-        <h1 className="text-16px sm:text-xl md:text-2xl font-bold flex items-center gap-2">
-        Submit Your Profile Link Here 📤 
+    <div className="bg-gray-900 min-h-screen p-4">
+      <div className="bg-gray-900 p-4 rounded-md flex-1 m-4 mt-0 max-w-7xl w-full">
+        {/* TOP SECTION */}
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+          <h1 className="text-sm sm:text-lg md:text-2xl font-bold flex items-center gap-2 text-white">
+            Submit Your Profile Link Here 📤
           </h1>
-        <div className="flex flex-col md:flex-row items-center gap-4 w-full md:w-auto">
-          <TableSearch />
-          <div className="flex items-center gap-4 self-end">
-            {(role === "admin" || role === "manager" || role==="users" ||  role==="new-users") && (
-              <FormContainer table="addSocialProfile" type="create" />
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* LIST ITEMS */}
-      <div className="mt-4 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {data.map((item) => (
-          <div
-            key={item.id}
-            className="border border-gray-200 p-4 rounded-md shadow-sm hover:shadow-lg transition-shadow"
-          >
-            <h2 className="font-semibold text-md mb-2 text-gray-800">Profile Link</h2>
-            <p className="text-sm text-gray-600 mb-4">{item.profileLink || "No Link Provided"}</p>
-            <div className="flex justify-between items-center">
-              {(role === "admin" || role === "manager" || role==="users" ||  role==="new-users") && (
-                <div className="flex gap-2">
-                  <FormContainer table="addSocialProfile" type="update" data={item} />
-                  <FormContainer table="addSocialProfile" type="delete" id={item.id} />
-                </div>
+          <div className="flex flex-col md:flex-row items-center gap-4 w-full md:w-auto">
+            <TableSearch />
+            <div className="flex items-center gap-4 self-end">
+              {(role === "admin" || role === "manager" || role === "users" || role === "new-users") && (
+                <FormContainer table="addSocialProfile" type="create" />
               )}
             </div>
           </div>
-        ))}
-      </div>
+        </div>
 
-      {/* PAGINATION */}
-      <div className="mt-4">
-        <Pagination page={p} count={count} />
+        {/* TABLE LIST */}
+        <div className="overflow-x-auto mt-4">
+          <table className="w-full border-collapse border border-gray-600 text-white">
+            <thead>
+              <tr className="bg-gray-800">
+                <th className="p-3 border border-gray-600 text-left">Profile Link</th>
+                {(role === "admin" || role === "manager" || role === "users" || role === "new-users") && (
+                  <th className="p-3 border border-gray-600 text-left">Actions</th>
+                )}
+              </tr>
+            </thead>
+            <tbody>
+              {data.map((item) => (
+                <tr key={item.id} className="bg-gray-700 border-b border-gray-600 hover:bg-gray-600">
+                  <td className="p-3 border border-gray-600">{item.profileLink || "No Link Provided"}</td>
+                  {(role === "admin" || role === "manager" || role === "users" || role === "new-users") && (
+                    <td className="p-3 border border-gray-600">
+                      <div className="flex gap-2">
+                        <FormContainer table="addSocialProfile" type="update" data={item} />
+                        <FormContainer table="addSocialProfile" type="delete" id={item.id} />
+                      </div>
+                    </td>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {/* PAGINATION */}
+        <div className="mt-4">
+          <Pagination page={p} count={count} />
+        </div>
       </div>
     </div>
   );
