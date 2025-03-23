@@ -16,8 +16,8 @@ const menuItems = [
       { icon: "/add-profilex.png", label: "Add Profile", href: "/list/add-social-profile", visible: ["admin", "manager", "users", "new-users"] },
       { icon: "/revenuex.png", label: "Revenue", href: "/list/revenue", visible: ["admin", "manager"] },
       { icon: "/viewsx.png", label: "Views", href: "/list/views", visible: ["admin", "manager"] },
-      { icon: "/paymentx.png", label: "Payment", href: "/list/payment", visible: ["users","new-users"] },
-      { icon: "/paymentx.png", label: "Payment Data", href: "/list/payment-table", visible: ["admin", "manager"] },
+      { icon: "/paymentx.png", label: "Payment", href: "/list/payment", visible: ["users","new-users","manager"] },
+      { icon: "/paymentx.png", label: "Payment Data", href: "/list/payment-table", visible: ["admin"] },
     ],
   },
   {
