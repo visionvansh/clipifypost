@@ -1,5 +1,0 @@
-[[headers]]
-  for = "/*"
-  [headers.values]
-    Content-Disposition = "attachment"
-    Content-Type = "text/csv"

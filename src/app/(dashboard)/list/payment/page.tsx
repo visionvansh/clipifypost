@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import PositionForm from "@/components/forms/announcementsForm";
 import { useUser } from "@clerk/nextjs";
 import { toast } from "react-toastify";
-import { FaUser, FaCreditCard, FaTrash, FaEdit } from "react-icons/fa";
+import { FaUser, FaCreditCard, FaEdit } from "react-icons/fa";
 
 interface PaymentData {
   userId: string;
@@ -21,28 +21,75 @@ export default function Announcements() {
   const [paymentData, setPaymentData] = useState<PaymentData | null>(null);
   const [showForm, setShowForm] = useState(true);
 
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
+
   useEffect(() => {
     if (userId) {
-      const storedData = localStorage.getItem(`payment_${userId}`);
-      if (storedData) {
-        setPaymentData(JSON.parse(storedData));
-        setShowForm(false);
-      }
+      const fetchPaymentData = async () => {
+        try {
+          console.log(`Fetching data for userId: ${userId}`);
+          const response = await fetch(`${baseUrl}/api/payments/${userId}`); // Changed to /api/payments
+          const text = await response.text();
+          console.log('GET Response:', text);
+
+          if (response.ok) {
+            const data = JSON.parse(text);
+            const titleParts = data.title.match(/(.+)\((.+)\)/);
+            if (titleParts) {
+              const username = titleParts[1];
+              const paymentMethod = titleParts[2];
+              const paymentDetails = data.description;
+              setPaymentData({ userId, username, paymentMethod, paymentDetails });
+              setShowForm(false);
+            } else {
+              throw new Error("Invalid title format");
+            }
+          } else if (response.status === 404) {
+            setShowForm(true);
+          } else {
+            throw new Error(`Failed to fetch: ${text}`);
+          }
+        } catch (error) {
+          console.error("Fetch Error:", error);
+          toast.error(`Failed to load payment data: ${String(error)}`);
+          setShowForm(true);
+        }
+      };
+      fetchPaymentData();
     }
   }, [userId]);
 
-  const handleSavePayment = (data: PaymentData) => {
-    setPaymentData(data);
-    setShowForm(false);
-    localStorage.setItem(`payment_${userId}`, JSON.stringify(data));
-    toast.success("Payment method saved successfully!");
-  };
+  const handleSavePayment = async (data: PaymentData) => {
+    const title = `${data.username}(${data.paymentMethod})`;
+    const description = data.paymentDetails;
+    try {
+      console.log(`Saving data for userId: ${data.userId}`, { title, description });
+      const response = await fetch(`${baseUrl}/api/payments/${data.userId}`, { // Changed to /api/payments
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title, description }),
+      });
+      const text = await response.text();
+      console.log('PUT Response:', text);
 
-  const handleDelete = () => {
-    localStorage.removeItem(`payment_${userId}`);
-    setPaymentData(null);
-    setShowForm(true);
-    toast.warn("Payment method removed.");
+      if (response.ok) {
+        const savedData = JSON.parse(text);
+        const titleParts = savedData.data.title.match(/(.+)\((.+)\)/);
+        if (titleParts) {
+          const username = titleParts[1];
+          const paymentMethod = titleParts[2];
+          const paymentDetails = savedData.data.description;
+          setPaymentData({ userId: data.userId, username, paymentMethod, paymentDetails });
+          setShowForm(false);
+          toast.success("Payment method saved successfully!");
+        }
+      } else {
+        throw new Error(`Failed to save: ${text}`);
+      }
+    } catch (error) {
+      console.error("Save Error:", error);
+      toast.error(`Failed to save payment data: ${String(error)}`);
+    }
   };
 
   return (
@@ -67,18 +114,12 @@ export default function Announcements() {
               <FaCreditCard className="mr-2 text-purple-400" /> <strong>Details:</strong> {paymentData?.paymentDetails}
             </p>
 
-            <div className="mt-6 flex space-x-4">
+            <div className="mt-6">
               <button
                 className="bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded-md flex items-center"
                 onClick={() => setShowForm(true)}
               >
                 <FaEdit className="mr-2" /> Update
-              </button>
-              <button
-                className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-md flex items-center"
-                onClick={handleDelete}
-              >
-                <FaTrash className="mr-2" /> Delete
               </button>
             </div>
           </div>

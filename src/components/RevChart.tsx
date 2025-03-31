@@ -86,7 +86,9 @@ const ViewsChart = () => {
       {loading ? (
         <p className="text-gray-400">Loading...</p>
       ) : error ? (
-        <div className="bg-gray-800 p-4 rounded-md text-gray-400 text-center">{error}</div>
+        <div className="flex items-center justify-center h-[300px] bg-gray-800 rounded-lg">
+          <p className="text-gray-400">No revenue made by you till now</p>
+        </div>
       ) : (
         <div className="w-full h-[300px]">
           <Bar

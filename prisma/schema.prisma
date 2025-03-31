@@ -15,16 +15,16 @@ model Admin {
 model Student {
   id         String       @id
   username   String       @unique
-  name       String
-  surname    String
+  name       String?
+  surname    String?
   email      String       @unique
-  phone      String       @unique
-  address    String
-  img        String
-  accounts   String       @unique
-  sex        UserSex
+  phone      String?    @unique
+  address    String?
+  img        String?
+  accounts   String?      @unique
+  sex        UserSex?
   createdAt  DateTime     @default(now())
-  platform   String
+  platform   String?
   attendence Attendance[]
   result Result[]
   assignment Assignment[]
@@ -124,10 +124,10 @@ model Assignment {
 }
   
 model Result {
-  id      Int    @id @default(autoincrement())
+  id      String    @id 
   socialAccountName    String
   nameOfPerson String
-  revenue   Int
+  revenue   String
 
   teacherId     String?
   teacher       Teacher?   @relation(fields: [teacherId], references: [id])
@@ -138,10 +138,10 @@ model Result {
 }
 
 model Attendance {
-  id        Int      @id @default(autoincrement())
+  id        String      @id 
   socialAccountName    String
   nameOfPerson String
-  views   Int
+  views   String
   teacherId     String?
   teacher       Teacher?   @relation(fields: [teacherId], references: [id])
   studentId     String?
@@ -150,13 +150,14 @@ model Attendance {
   parent       Parent?   @relation(fields: [parentId], references: [id])
 }
 
-model Announcement {
-  id          Int      @id @default(autoincrement())
-  title       String
-  description String
-  date        DateTime
+  model Announcement {
+    id          Int      @id @default(autoincrement())
+    userId      String   @unique
+    title       String
+    description String
+    date        DateTime
 
-}
+  }
 
 model Event {
   id          Int      @id @default(autoincrement())

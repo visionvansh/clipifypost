@@ -1,7 +1,7 @@
 import Image from "next/image";
 import prisma from "@/lib/prisma";
 import { auth } from "@clerk/nextjs/server";
-import { Result, Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 
 const RevenueChart = async ({ type }: { type: "Your Revenue" }) => {
   const { sessionClaims, userId } = await auth();
@@ -32,10 +32,13 @@ const RevenueChart = async ({ type }: { type: "Your Revenue" }) => {
     select: { revenue: true },
   });
 
-  // Calculate total revenue
-  const totalRevenue = data.reduce((acc, item) => acc + (item.revenue || 0), 0);
+  // Calculate total revenue, converting revenue to number
+  const totalRevenue = data.reduce((acc, item) => {
+    const revenueValue = item.revenue && !isNaN(Number(item.revenue)) ? Number(item.revenue) : 0;
+    return acc + revenueValue;
+  }, 0);
 
-  // Format revenue number with global comma style
+  // Format revenue number with global comma style and $
   const formattedRevenue = `$${totalRevenue.toLocaleString("en-US")}`;
 
   return (

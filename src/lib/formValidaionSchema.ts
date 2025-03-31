@@ -129,10 +129,10 @@ export const addSocialProfilesSchema = z.object({
   export type AddSocialProfilesSchema = z.infer<typeof addSocialProfilesSchema>;
 
   export const revenueSchema = z.object({
-    id: z.coerce.number().optional(),
+    id: z.coerce.string(),
     socialAccountName: z.string().min(1, { message: "Account name is required!" }),
     nameOfPerson: z.string().min(1, { message: "Name of person is required!" }),
-    revenue: z.coerce.number().min(1,{message:"Views should be there if not then put 0"}),
+    revenue: z.coerce.string().min(1,{message:"Views should be there if not then put 0"}),
     teacherId: z.string().optional(),
     studentId: z.string().optional(),
     parentId: z.string().optional(),
@@ -150,10 +150,11 @@ export const addSocialProfilesSchema = z.object({
   export type AnnouncementSchema = z.infer<typeof announcementSchema>;
 
   export const viewsSchema = z.object({
-    id: z.coerce.number().optional(),
+    id: z.coerce.string(),
+    userId : z.coerce.string().optional(),
     socialAccountName: z.string().min(1, { message: "Title is required!" }),
     nameOfPerson: z.string().min(1, { message: "Description is required!" }),
-    views: z.coerce.number().gte(-1, 'Value should be above -1'),
+    views: z.coerce.string().min(1, { message: "Views is required!" }),
     teacherId: z.string().optional(),
     studentId: z.string().optional(),
     parentId: z.string().optional(),

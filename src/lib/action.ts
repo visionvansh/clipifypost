@@ -16,6 +16,7 @@ import {
 } from "./formValidaionSchema";
 import prisma from "./prisma";
 import { clerkClient } from "@clerk/nextjs/server";
+import { parse } from "path";
 
 type CurrentState = { success: boolean; error: boolean };
 
@@ -675,7 +676,7 @@ export const deleteRevenue = async (
   try {
     await prisma.result.delete({
       where: {
-        id: parseInt(id),
+        id: id,
       },
     });
 
@@ -687,27 +688,7 @@ export const deleteRevenue = async (
   }
 };
 
-export const createAnnouncement = async (
-  currentState: CurrentState,
-  data: AnnouncementSchema
-) => {
-  try {
-    await prisma.announcement.create({
-      data: {
-        id: data.id,
-        title: data.title,
-        description : data.description,
-        date: data.date
-      },
-    });
 
-    // revalidatePath("/list/subjects");
-    return { success: true, error: false };
-  } catch (err) {
-    console.log(err);
-    return { success: false, error: true };
-  }
-};
 
 export const updateAnnouncement = async (
   currentState: CurrentState,
@@ -817,7 +798,7 @@ export const deleteViews = async (
   try {
     await prisma.attendance.delete({
       where: {
-        id: parseInt(id),
+        id: id,
       },
     });
 

@@ -1,7 +1,7 @@
 import Image from "next/image";
 import prisma from "@/lib/prisma";
 import { auth } from "@clerk/nextjs/server";
-import { Attendance, Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 
 const ViewsChart = async ({ type }: { type: "Your View" }) => {
   const { sessionClaims, userId } = await auth();
@@ -32,8 +32,11 @@ const ViewsChart = async ({ type }: { type: "Your View" }) => {
     select: { views: true },
   });
 
-  // Calculate total views
-  const totalViews = data.reduce((acc, item) => acc + (item.views || 0), 0);
+  // Calculate total views, converting views to number
+  const totalViews = data.reduce((acc, item) => {
+    const viewsValue = item.views && !isNaN(Number(item.views)) ? Number(item.views) : 0;
+    return acc + viewsValue;
+  }, 0);
 
   // Format number with global comma style (100,000 instead of 1,00,000)
   const formattedViews = totalViews.toLocaleString("en-US");
@@ -48,8 +51,8 @@ const ViewsChart = async ({ type }: { type: "Your View" }) => {
         <Image
           src="/more.png"
           alt="More"
-          width={16} 
-          height={16} 
+          width={16}
+          height={16}
           className="opacity-70 hover:opacity-100 transition-opacity duration-200 cursor-pointer sm:w-[20px] sm:h-[20px]"
         />
       </div>

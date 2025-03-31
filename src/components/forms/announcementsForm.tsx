@@ -3,8 +3,15 @@
 import { useState } from "react";
 import { toast } from "react-toastify";
 
+interface PaymentData {
+  userId: string;
+  username: string;
+  paymentMethod: string;
+  paymentDetails: string;
+}
+
 interface PositionFormProps {
-  onSave: (data: { userId: string; username: string; paymentMethod: string; paymentDetails: string }) => void;
+  onSave: (data: PaymentData) => void;
   userId?: string;
   username: string;
 }
@@ -21,7 +28,14 @@ export default function PositionForm({ onSave, userId, username }: PositionFormP
       return;
     }
 
-    onSave({ userId: userId || "", username, paymentMethod, paymentDetails });
+    if (!userId) {
+      toast.error("User ID is missing!");
+      return;
+    }
+
+    onSave({ userId, username, paymentMethod, paymentDetails });
+    setPaymentMethod(""); // Reset form
+    setPaymentDetails(""); // Reset form
   };
 
   return (

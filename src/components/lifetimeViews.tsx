@@ -43,7 +43,7 @@ const LifetimeViews = () => {
         const userRow = data.values.find((row: string[]) => row[userIdIndex] === userId);
 
         if (!userRow) {
-          setError("No views recorded yet.");
+          setError("0");
           setLoading(false);
           return;
         }
@@ -87,7 +87,7 @@ const LifetimeViews = () => {
           overflowWrap: "break-word",
         }}
       >
-        {loading ? "Loading..." : error ? <span className="text-red-500">{error}</span> : views}
+        {loading ? "Loading..." : error ? <span className="text-blue-400">{error}</span> : views}
       </h1>
 
       <h2 className="capitalize text-sm font-medium text-gray-400 sm:text-left text-center">
