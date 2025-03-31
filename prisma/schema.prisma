@@ -155,7 +155,7 @@ model Attendance {
     userId      String   @unique
     title       String
     description String
-    date        DateTime
+  
 
   }
 

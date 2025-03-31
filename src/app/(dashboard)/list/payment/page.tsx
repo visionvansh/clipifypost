@@ -28,9 +28,9 @@ export default function Announcements() {
       const fetchPaymentData = async () => {
         try {
           console.log(`Fetching data for userId: ${userId}`);
-          const response = await fetch(`${baseUrl}/api/payments/${userId}`); // Changed to /api/payments
+          const response = await fetch(`${baseUrl}/api/payments/${userId}`);
           const text = await response.text();
-          console.log('GET Response:', text);
+          console.log("GET Response:", text);
 
           if (response.ok) {
             const data = JSON.parse(text);
@@ -64,13 +64,13 @@ export default function Announcements() {
     const description = data.paymentDetails;
     try {
       console.log(`Saving data for userId: ${data.userId}`, { title, description });
-      const response = await fetch(`${baseUrl}/api/payments/${data.userId}`, { // Changed to /api/payments
+      const response = await fetch(`${baseUrl}/api/payments/${data.userId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, description }),
+        body: JSON.stringify({ title, description }), // Removed date
       });
       const text = await response.text();
-      console.log('PUT Response:', text);
+      console.log("PUT Response:", text);
 
       if (response.ok) {
         const savedData = JSON.parse(text);
@@ -105,13 +105,16 @@ export default function Announcements() {
               <FaUser className="mr-2 text-blue-400" /> Your Payment Details
             </h2>
             <p className="flex items-center">
-              <FaUser className="mr-2 text-yellow-400" /> <strong>Username:</strong> {paymentData?.username}
+              <FaUser className="mr-2 text-yellow-400" /> <strong>Username:</strong>{" "}
+              {paymentData?.username}
             </p>
             <p className="flex items-center mt-2">
-              <FaCreditCard className="mr-2 text-green-400" /> <strong>Method:</strong> {paymentData?.paymentMethod}
+              <FaCreditCard className="mr-2 text-green-400" /> <strong>Method:</strong>{" "}
+              {paymentData?.paymentMethod}
             </p>
             <p className="flex items-center mt-2">
-              <FaCreditCard className="mr-2 text-purple-400" /> <strong>Details:</strong> {paymentData?.paymentDetails}
+              <FaCreditCard className="mr-2 text-purple-400" /> <strong>Details:</strong>{" "}
+              {paymentData?.paymentDetails}
             </p>
 
             <div className="mt-6">

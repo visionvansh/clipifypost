@@ -1,6 +1,5 @@
 // No "use client" - Yeh ab server component hai
 import { PrismaClient } from "@prisma/client";
-import { FaDownload } from "react-icons/fa";
 
 const prisma = new PrismaClient();
 
@@ -10,13 +9,12 @@ interface PaymentData {
   username: string; // Extracted from title
   paymentMethod: string; // Extracted from title
   paymentDetails: string; // description field
-  date: string; // Formatted date
 }
 
 async function fetchPayments(): Promise<PaymentData[]> {
   try {
     const data = await prisma.announcement.findMany({
-      orderBy: { date: "desc" }, // Latest payments pehle
+      orderBy: { id: "desc" }, // Latest payments pehle (date nahi hai toh id se sort)
     });
     console.log("Fetched payments:", data);
 
@@ -29,7 +27,6 @@ async function fetchPayments(): Promise<PaymentData[]> {
         username: titleParts ? titleParts[1] : "Unknown",
         paymentMethod: titleParts ? titleParts[2] : "Unknown",
         paymentDetails: item.description,
-        date: new Date(item.date).toLocaleString(), // Readable date
       };
     });
     return formattedPayments;
@@ -51,9 +48,6 @@ export default async function PaymentTable() {
 
         {payments.length > 0 ? (
           <>
-          
-      
-
             {/* Payment Table */}
             <div className="overflow-x-auto border border-gray-700 rounded-lg">
               <table className="w-full text-left border-collapse">
@@ -64,7 +58,6 @@ export default async function PaymentTable() {
                     <th className="p-4 border border-gray-600">Username</th>
                     <th className="p-4 border border-gray-600">Payment Method</th>
                     <th className="p-4 border border-gray-600">Payment Details</th>
-                    <th className="p-4 border border-gray-600">Date</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -78,7 +71,6 @@ export default async function PaymentTable() {
                       <td className="p-4">{payment.username}</td>
                       <td className="p-4">{payment.paymentMethod}</td>
                       <td className="p-4">{payment.paymentDetails}</td>
-                      <td className="p-4">{payment.date}</td>
                     </tr>
                   ))}
                 </tbody>

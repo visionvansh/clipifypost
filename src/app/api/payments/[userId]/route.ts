@@ -1,5 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server';
-import  prisma  from '@/lib/prisma';
+import { NextRequest, NextResponse } from "next/server";
+import prisma from "@/lib/prisma";
 
 // GET: User ka payment data fetch karo
 export async function GET(request: NextRequest, { params }: { params: { userId: string } }) {
@@ -12,12 +12,12 @@ export async function GET(request: NextRequest, { params }: { params: { userId: 
     if (announcement) {
       return NextResponse.json(announcement);
     } else {
-      return NextResponse.json({ error: 'Payment data not found' }, { status: 404 });
+      return NextResponse.json({ error: "Payment data not found" }, { status: 404 });
     }
   } catch (error) {
-    console.error('GET Error:', error);
+    console.error("GET Error:", error);
     return NextResponse.json(
-      { error: 'Failed to fetch payment data', details: String(error) },
+      { error: "Failed to fetch payment data", details: String(error) },
       { status: 500 }
     );
   }
@@ -31,7 +31,7 @@ export async function PUT(request: NextRequest, { params }: { params: { userId: 
 
     if (!title || !description) {
       return NextResponse.json(
-        { error: 'Title and description are required' },
+        { error: "Title and description are required" },
         { status: 400 }
       );
     }
@@ -40,27 +40,25 @@ export async function PUT(request: NextRequest, { params }: { params: { userId: 
       where: { userId: userId },
       update: {
         title,
-        description,
-        date: new Date(),
+        description, // Removed date
       },
       create: {
         userId: userId,
         title,
-        description,
-        date: new Date(),
+        description, // Removed date
       },
     });
 
     console.log(`PUT Response for ${userId}:`, announcement); // Debug
     return NextResponse.json({
       success: true,
-      message: 'Payment data saved successfully',
+      message: "Payment data saved successfully",
       data: announcement,
     });
   } catch (error) {
-    console.error('PUT Error:', error);
+    console.error("PUT Error:", error);
     return NextResponse.json(
-      { error: 'Failed to save payment data', details: String(error) },
+      { error: "Failed to save payment data", details: String(error) },
       { status: 500 }
     );
   }
