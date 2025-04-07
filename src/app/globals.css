@@ -2,11 +2,11 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Add to your global CSS file (e.g., globals.css) */
-@keyframes floatGlow {
-    0%, 100% { transform: translateY(0); text-shadow: 0 0 10px rgba(255, 255, 255, 0.8); }
-    50% { transform: translateY(-5px); text-shadow: 0 0 20px rgba(255, 255, 255, 1); }
+html, body {
+    background-color: #000;
+    color: #fff;
+    min-height: 100vh;
+    margin: 0;
+    padding: 0;
   }
-  .animate-floatGlow {
-    animation: floatGlow 3s ease-in-out infinite;
-  }
+  

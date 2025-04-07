@@ -1,34 +1,37 @@
 import FinanceChart from "@/components/FinanceChart";
 import UserCard from "@/components/UserCard";
 import AttendanceChartContainer from "@/components/AttendenceChartContainer";
-import { FaUserShield } from "react-icons/fa"; // Importing Admin Icon
+import { FaUserShield } from "react-icons/fa";
 
 const AdminPage = () => {
   return (
-    <div className="p-4 flex flex-col gap-6 bg-black text-white min-h-screen">
-      {/* 🔹 Admin Page Heading - Removed Greyish BG */}
-      <div className="flex items-center gap-3 text-white text-3xl font-extrabold p-4 rounded-lg">
-        <FaUserShield className="text-blue-500 text-4xl" /> {/* Admin Icon */}
-        <h1 className="tracking-wide">Admin Dashboard</h1>
+    <div className="bg-black min-h-screen w-full flex flex-col p-4 md:p-6 text-white overflow-y-auto">
+      {/* Admin Page Heading */}
+      <div className="flex items-center space-x-3">
+        <FaUserShield className="text-blue-500 text-4xl md:text-5xl" />
+        <h1 className="text-3xl md:text-4xl font-extrabold tracking-wide font-[Poppins]">
+          Admin Dashboard
+        </h1>
       </div>
 
-      {/* 🔹 User Cards - Now in one row */}
-      <div className="flex gap-4 justify-between">
+      <h2 className="text-xl md:text-2xl font-bold text-gray-300 mt-4 md:mt-6 mb-3 md:mb-4 tracking-wide">
+        👥 User Overview
+      </h2>
+
+      {/* User Cards Row */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 w-full">
         <UserCard type="admin" />
         <UserCard type="manager" />
         <UserCard type="user" />
         <UserCard type="newUser" />
       </div>
 
-      {/* 🔹 Charts Section - Attendance & Finance in One Line */}
-      <div className="flex gap-4">
-        {/* Attendance Chart */}
-        <div className="w-1/2 h-[450px] bg-gray-900 p-4 rounded-lg">
+      {/* Charts Row */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4 w-full mt-4 md:mt-6">
+        <div className="bg-gray-900 rounded-lg p-4 ">
           <AttendanceChartContainer />
         </div>
-
-        {/* Finance Chart */}
-        <div className="w-1/2 h-[450px] bg-gray-900 p-4 rounded-lg">
+        <div className="bg-gray-900 rounded-lg p-4 ">
           <FinanceChart />
         </div>
       </div>

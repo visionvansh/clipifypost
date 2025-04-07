@@ -95,62 +95,7 @@ export const deletePosition = async (
   }
 };
 
-export const createSocialProfiles = async (
-  currentState: CurrentState,
-  data: SocialProfilesSchema
-) => {
-  try {
-    await prisma.lesson.create({
-      data,
-    });
 
-    // revalidatePath("/list/class");
-    return { success: true, error: false };
-  } catch (err) {
-    console.log(err);
-    return { success: false, error: true };
-  }
-};
-
-export const updateSocialProfiles = async (
-  currentState: CurrentState,
-  data: SocialProfilesSchema
-) => {
-  try {
-    await prisma.lesson.update({
-      where: {
-        id: data.id,
-      },
-      data,
-    });
-
-    // revalidatePath("/list/class");
-    return { success: true, error: false };
-  } catch (err) {
-    console.log(err);
-    return { success: false, error: true };
-  }
-};
-
-export const deleteSocialProfiles = async (
-  currentState: CurrentState,
-  data: FormData
-) => {
-  const id = data.get("id") as string;
-  try {
-    await prisma.lesson.delete({
-      where: {
-        id: parseInt(id),
-      },
-    });
-
-    // revalidatePath("/list/class");
-    return { success: true, error: false };
-  } catch (err) {
-    console.log(err);
-    return { success: false, error: true };
-  }
-};
 
 export const createManager = async (
   currentState: CurrentState,
@@ -282,7 +227,6 @@ export const createUsers = async (
         img: data.img ,
         platform: data.platform,
         sex: data.sex,
-        accounts: data.accounts,
         createdAt: data.createdAt
       },
     });
@@ -326,7 +270,6 @@ export const updateUsers = async (
         img: data.img ,
         platform: data.platform,
         sex: data.sex,
-        accounts: data.accounts,
         createdAt: data.createdAt,
       },
     });
@@ -477,71 +420,7 @@ export const deleteNewUsers = async (
 };
 
 
-export const createPasteLink = async (
-  currentState: CurrentState,
-  data: PasteLinkSchema
-) => {
-  try {
-    await prisma.exam.create({
-      data: {
-        id: data.id,
-        name: data.name,
-        spreadsheetLink: data.spreadsheetLink,
-      },
-    });
 
-    // revalidatePath("/list/subjects");
-    return { success: true, error: false };
-  } catch (err) {
-    console.log(err);
-    return { success: false, error: true };
-  }
-};
-
-export const updatePasteLink = async (
-  currentState: CurrentState,
-  data: PasteLinkSchema
-) => {
-  try {
-    await prisma.exam.update({
-      where: {
-        id: data.id,
-      },
-      data: {
-        id: data.id,
-        name: data.name,
-        spreadsheetLink: data.spreadsheetLink,
-       
-      },
-    });
-
-    // revalidatePath("/list/subjects");
-    return { success: true, error: false };
-  } catch (err) {
-    console.log(err);
-    return { success: false, error: true };
-  }
-};
-
-export const deletePasteLink = async (
-  currentState: CurrentState,
-  data: FormData
-) => {
-  const id = data.get("id") as string;
-  try {
-    await prisma.exam.delete({
-      where: {
-        id: parseInt(id),
-      },
-    });
-
-    // revalidatePath("/list/subjects");
-    return { success: true, error: false };
-  } catch (err) {
-    console.log(err);
-    return { success: false, error: true };
-  }
-};
 
 export const createAddSocialProfile = async (
   currentState: CurrentState,

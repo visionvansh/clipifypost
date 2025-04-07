@@ -8,12 +8,8 @@ export type FormContainerProps = {
     | "users"
     | "newUsers"
     | "position"
-    | "socialProfiles"
-    | "pasteLink"
-    | "addSocialProfile"
     | "revenue"
     | "views"
-    | "announcement";
   type: "create" | "update" | "delete";
   data?: any;
   id?: number | string;

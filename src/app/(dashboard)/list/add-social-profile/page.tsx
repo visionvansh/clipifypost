@@ -66,9 +66,7 @@ const AssignmentListPage = async ({
           <div className="flex flex-col md:flex-row items-center gap-4 w-full md:w-auto">
             <TableSearch />
             <div className="flex items-center gap-4 self-end">
-              {(role === "admin" || role === "manager" || role === "users" || role === "new-users") && (
-                <FormContainer table="addSocialProfile" type="create" />
-              )}
+          
             </div>
           </div>
         </div>
@@ -91,8 +89,7 @@ const AssignmentListPage = async ({
                   {(role === "admin" || role === "manager" || role === "users" || role === "new-users") && (
                     <td className="p-3 border border-gray-600">
                       <div className="flex gap-2">
-                        <FormContainer table="addSocialProfile" type="update" data={item} />
-                        <FormContainer table="addSocialProfile" type="delete" id={item.id} />
+                    
                       </div>
                     </td>
                   )}

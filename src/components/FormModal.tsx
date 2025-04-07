@@ -7,8 +7,6 @@ import {
   deleteUsers,
   deleteNewUsers,
   deletePosition,
-  deleteSocialProfiles,
-  deletePasteLink,
   deleteAddSocialProfile,
   deleteRevenue,
   deleteViews
@@ -26,8 +24,7 @@ const deleteActionMap = {
   users: deleteUsers,
   newUsers: deleteNewUsers,
   position: deletePosition,
-  socialProfiles: deleteSocialProfiles,
-  pasteLink: deletePasteLink,
+
   addSocialProfile: deleteAddSocialProfile,
   revenue: deleteRevenue,
   views: deleteViews,
@@ -59,18 +56,6 @@ const PositionForm = dynamic(() => import("./forms/PositionForm"), {
   loading: () => <h1>Loading...</h1>,
 });
 
-const SocialProfiles = dynamic(() => import("./forms/socialProfiles"), {
-  loading: () => <h1>Loading...</h1>,
-});
-
-const PasteLinkForm = dynamic(() => import("./forms/pasteLinkForm"), {
-  loading: () => <h1>Loading...</h1>,
-});
-
-const AddSocialProfile = dynamic(() => import("./forms/addSocialProfiles"), {
-  loading: () => <h1>Loading...</h1>,
-});
-
 const RevenueForm = dynamic(() => import("./forms/revenueForm"), {
   loading: () => <h1>Loading...</h1>,
 });
@@ -79,9 +64,6 @@ const ViewsForm = dynamic(() => import("./forms/ViewsForm"), {
   loading: () => <h1>Loading...</h1>,
 });
 
-const AnnouncementForm = dynamic(() => import("./forms/announcementsForm"), {
-  loading: () => <h1>Loading...</h1>,
-});
 // TODO: OTHER FORMS
 
 const forms: {
@@ -124,34 +106,9 @@ const forms: {
       relatedData={relatedData}
     />
   ),
-  socialProfiles: (setOpen, type, data, relatedData) => (
-    <SocialProfiles
-      type={type}
-      data={data}
-      setOpen={setOpen}
-  
-    />
-    // TODO OTHER LIST ITEMS
-  ),
-  pasteLink: (setOpen, type, data, relatedData) => (
-    <PasteLinkForm
-      type={type}
-      data={data}
-      setOpen={setOpen}
-   
-    />
-    // TODO OTHER LIST ITEMS
-  ),
 
-  addSocialProfile: (setOpen, type, data, relatedData) => (
-    <AddSocialProfile
-      type={type}
-      data={data}
-      setOpen={setOpen}
-   
-    />
-    // TODO OTHER LIST ITEMS
-  ),
+
+
 
   revenue: (setOpen, type, data, relatedData) => (
     <RevenueForm

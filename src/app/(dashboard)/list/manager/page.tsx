@@ -3,10 +3,25 @@ import Pagination from "@/components/Pagination";
 import Table from "../../../../components/Table";
 import TableSearch from "@/components/TableSearch";
 import prisma from "@/lib/prisma";
-import { Prisma, Teacher } from "@prisma/client";
+import { Prisma, Student } from "@prisma/client";
 import Image from "next/image";
 import { ITEM_PER_PAGE } from "@/lib/settings";
 import { auth } from "@clerk/nextjs/server";
+
+// Extended Student type with extra fields
+type StudentWithExtras = Student & {
+  email: string;
+  username: string;
+  instagramUsername: string; // Instagram username from link
+  totalViews: number;
+  totalRevenue: number;
+};
+
+// Function to extract username from Instagram link
+const extractInstagramUsername = (link: string): string => {
+  const match = link.match(/instagram\.com\/([A-Za-z0-9._]+)/);
+  return match ? match[1] : "N/A";
+};
 
 const TeacherListPage = async ({
   searchParams,
@@ -16,19 +31,20 @@ const TeacherListPage = async ({
   const { sessionClaims } = await auth();
   const role = (sessionClaims?.metadata as { role?: string })?.role;
 
+  // Updated columns to include Email, Account (Instagram Username), Total Views, Total Revenue
   const columns = [
     { header: "Info", accessor: "info", className: "min-w-[200px]" },
-    { header: "Manager ID", accessor: "managerId", className: "min-w-[150px]" },
-    { header: "Accounts", accessor: "accounts", className: "min-w-[150px]" },
-    { header: "Platform", accessor: "platform", className: "min-w-[150px]" },
-    { header: "Phone", accessor: "phone", className: "min-w-[150px]" },
-    { header: "Country", accessor: "country", className: "min-w-[150px]" },
+    { header: "Username", accessor: "username", className: "min-w-[150px]" },
+    { header: "Email", accessor: "email", className: "min-w-[200px]" },
+    { header: "Account", accessor: "account", className: "min-w-[150px]" },
+    { header: "Total Views", accessor: "totalViews", className: "min-w-[150px]" },
+    { header: "Total Revenue", accessor: "totalRevenue", className: "min-w-[150px]" },
     ...(role === "admin"
       ? [{ header: "Actions", accessor: "action", className: "min-w-[100px]" }]
       : []),
   ];
 
-  const renderRow = (item: Teacher) => (
+  const renderRow = (item: StudentWithExtras) => (
     <tr
       key={item.id}
       className="border-b border-gray-700 even:bg-gray-800 text-sm hover:bg-gray-700 transition-all"
@@ -46,28 +62,26 @@ const TeacherListPage = async ({
           <p className="text-xs text-gray-500">{item.email}</p>
         </div>
       </td>
-      <td className="min-w-[150px] text-gray-400">{item.id}</td>
-      <td className="min-w-[150px] text-gray-400">{item.accounts}</td>
-      <td className="min-w-[150px] text-gray-400">{item.platform}</td>
-      <td className="min-w-[150px] text-gray-400">{item.phone}</td>
-      <td className="min-w-[150px] text-gray-400">{item.address}</td>
-      <td>
-        <div className="flex items-center gap-2">
-          {role === "admin" && (
-            <>
-              <FormContainer table="users" type="delete" />
-              <FormContainer table="users" type="update" />
-            </>
-          )}
-        </div>
-      </td>
+      <td className="min-w-[150px] text-gray-400">{item.username}</td>
+      <td className="min-w-[200px] text-gray-400">{item.email}</td>
+      <td className="min-w-[150px] text-gray-400">{item.instagramUsername}</td>
+      <td className="min-w-[150px] text-gray-400">{item.totalViews.toLocaleString()}</td>
+      <td className="min-w-[150px] text-gray-400">${item.totalRevenue.toLocaleString()}</td>
+      {role === "admin" && (
+        <td>
+          <div className="flex items-center gap-2">
+            <FormContainer table="users" type="delete" />
+            <FormContainer table="users" type="update" />
+          </div>
+        </td>
+      )}
     </tr>
   );
 
   const { page, ...queryParams } = searchParams;
   const p = page ? parseInt(page) : 1;
 
-  const query: Prisma.TeacherWhereInput = {};
+  const query: Prisma.StudentWhereInput = {};
   if (queryParams) {
     for (const [key, value] of Object.entries(queryParams)) {
       if (value !== undefined && key === "search") {
@@ -76,14 +90,46 @@ const TeacherListPage = async ({
     }
   }
 
-  const [data, count] = await prisma.$transaction([
-    prisma.teacher.findMany({
-      where: query,
-      take: ITEM_PER_PAGE,
-      skip: ITEM_PER_PAGE * (p - 1),
-    }),
-    prisma.teacher.count({ where: query }),
-  ]);
+  // Fetch students with their accounts, attendance, and results
+  const students = await prisma.student.findMany({
+    where: query,
+    include: {
+      accounts: {
+        select: { instagramLink: true },
+      },
+      attendence: {
+        select: { views: true },
+      },
+      result: {
+        select: { revenue: true },
+      },
+    },
+    take: ITEM_PER_PAGE,
+    skip: ITEM_PER_PAGE * (p - 1),
+  });
+
+  // Process data to include total views, total revenue, and Instagram username
+  const data: StudentWithExtras[] = students.map((student) => {
+    const totalViews = student.attendence.reduce(
+      (sum, record) => sum + (parseInt(record.views) || 0),
+      0
+    );
+    const totalRevenue = student.result.reduce(
+      (sum, record) => sum + (parseFloat(record.revenue) || 0),
+      0
+    );
+    const instagramLink = student.accounts[0]?.instagramLink || "N/A"; // Take first account's link
+    const instagramUsername = extractInstagramUsername(instagramLink);
+
+    return {
+      ...student,
+      instagramUsername,
+      totalViews,
+      totalRevenue,
+    };
+  });
+
+  const count = await prisma.student.count({ where: query });
 
   return (
     <div className="bg-gray-900 min-h-screen w-full flex justify-center">

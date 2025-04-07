@@ -1,3 +1,4 @@
+
 import { currentUser } from "@clerk/nextjs/server";
 import Image from "next/image";
 import Link from "next/link";
@@ -7,25 +8,20 @@ const menuItems = [
     title: "MENU",
     items: [
       { icon: "/homex.png", label: "Home", href: "/", visible: ["admin", "manager", "users", "new-users"] },
-      { icon: "/managerx.png", label: "Manager", href: "/list/manager", visible: ["admin"] },
+      { icon: "/managerx.png", label: "Manager", href: "/list/manager", visible: [""] },
       { icon: "/userx.png", label: "Users", href: "/list/users", visible: ["admin", "manager"] },
-      { icon: "/new-userx.png", label: "New Users", href: "/list/new-users", visible: ["admin", "manager"] },
+      { icon: "/new-userx.png", label: "New Users", href: "/list/new-users", visible: [ ] },
       { icon: "/positionx.png", label: "Positions", href: "/list/positions", visible: ["admin", "manager", "users", "new-users"] },
-      { icon: "/social-profilex.png", label: "Social Profiles", href: "/list/social-profiles", visible: ["admin", "manager"] },
-      { icon: "/paste-linkx.png", label: "Paste Link", href: "/list/paste-link", visible: ["admin", "manager", "users", "new-users"] },
-      { icon: "/add-profilex.png", label: "Add Profile", href: "/list/add-social-profile", visible: ["admin", "manager", "users", "new-users"] },
+   
+      { icon: "/uploadx.png", label: "Uploaders", href: "/list/paste-link", visible: [ "users", "new-users"] },
+      { icon: "/add-profilex.png", label: "Add Profile", href: "/list/add-social-profile", visible: ["users", "new-users"] },
       { icon: "/revenuex.png", label: "Revenue", href: "/list/revenue", visible: ["admin", "manager"] },
+      
       { icon: "/viewsx.png", label: "Views", href: "/list/views", visible: ["admin", "manager"] },
-      { icon: "/paymentx.png", label: "Payment", href: "/list/payment", visible: ["users","new-users","manager"] },
+      { icon: "/paymentx.png", label: "Payment", href: "/list/payment", visible: ["users","new-users"] },
       { icon: "/paymentx.png", label: "Payment Data", href: "/list/payment-table", visible: ["admin"] },
-    ],
-  },
-  {
-    title: "OTHER",
-    items: [
-      { icon: "/profilex.png", label: "Profile", href: "/profile", visible: ["admin", "manager", "users", "new-users"] },
-      { icon: "/setg.png", label: "Settings", href: "/settings", visible: ["admin", "manager", "users", "new-users"] },
-      { icon: "/log.png", label: "Logout", href: "/logout", visible: ["admin", "manager", "users", "new-users"] },
+      { icon: "/checkx.png", label: "Checking", href: "/list/checking", visible: ["admin"] },
+      { icon: "/addx.png", label: "Add Promotion", href: "/list/social-profiles", visible: ["admin", "manager"] },
     ],
   },
 ];

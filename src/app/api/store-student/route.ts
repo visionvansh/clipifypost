@@ -10,6 +10,7 @@ export async function POST(request: Request) {
 
     console.log("Parsed data:", { clerkUserId, username, email });
 
+    // Validate required fields
     if (!clerkUserId || !username || !email) {
       console.error("Missing required fields:", { clerkUserId, username, email });
       return NextResponse.json(
@@ -18,22 +19,22 @@ export async function POST(request: Request) {
       );
     }
 
-    // Store in Student table
+    // Store in Student table (omit accounts field)
     console.log("Storing in Student table with ID:", clerkUserId);
     const student = await prisma.student.create({
       data: {
         id: clerkUserId,
         username,
         email,
-        name: null,
+        name: null, // Optional fields can stay null
         surname: null,
         phone: null,
         address: null,
         img: null,
-        accounts: null,
         sex: null,
         platform: null,
         createdAt: new Date(),
+        // accounts field omit kiya—Prisma ise default empty array ke roop mein handle karega
       },
     });
     console.log("Student stored:", student);
@@ -51,11 +52,11 @@ export async function POST(request: Request) {
     });
     console.log("Result stored:", result);
 
-    // Store in Attendance table with clerkUserId as ID
+    // Store in Attendance table
     console.log("Storing in Attendance table with ID:", clerkUserId);
     const attendance = await prisma.attendance.create({
       data: {
-        id: clerkUserId, // Directly set clerkUserId as ID
+        id: clerkUserId,
         socialAccountName: "N/A",
         nameOfPerson: username,
         views: "0",

@@ -4,10 +4,6 @@ import React, { useEffect, useState } from "react";
 import { useAuth } from "@clerk/nextjs";
 import Image from "next/image";
 
-const SPREADSHEET_ID = "1G-Zp3rE9ASxbHJSycSrgktEMCXYGldXdPAi1JlhCzkw";
-const API_KEY = "AIzaSyDnfCVlTNgP7UV3s87vhzKvTLstXL3syC0";
-const SHEET_NAME = "Sheet1";
-
 const LifetimeRevenueCard = () => {
   const { userId } = useAuth();
   const [revenue, setRevenue] = useState<string | null>(null);
@@ -17,47 +13,32 @@ const LifetimeRevenueCard = () => {
   useEffect(() => {
     if (!userId) return;
 
-    const fetchRevenue = async () => {
-      const URL = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${SHEET_NAME}?key=${API_KEY}`;
-
+    const fetchLifetimeRevenue = async () => {
       try {
-        const response = await fetch(URL);
+        const response = await fetch(`/api/revenue?studentId=${userId}`);
         const data = await response.json();
 
-        if (!data.values) {
-          setError("No data found.");
+        if (!data || data.length === 0) {
+          setError("$0"); // No revenue found, show $0
           setLoading(false);
           return;
         }
 
-        const headers: string[] = data.values[0];
-        const userIdIndex = headers.indexOf("userId");
-        const revenueIndex = headers.indexOf("lifetimeRevenue");
+        // Calculate total lifetime revenue
+        const totalRevenue = data.reduce((sum: number, record: { revenue: string }) => {
+          return sum + (parseFloat(record.revenue) || 0);
+        }, 0);
 
-        if (userIdIndex === -1 || revenueIndex === -1) {
-          setError("Invalid column names.");
-          setLoading(false);
-          return;
-        }
-
-        const userRow = data.values.find((row: string[]) => row[userIdIndex] === userId);
-
-        if (!userRow) {
-          setError("$0");
-          setLoading(false);
-          return;
-        }
-
-        setRevenue(`$${parseFloat(userRow[revenueIndex]).toLocaleString()}`);
+        setRevenue(`$${totalRevenue.toLocaleString()}`);
         setLoading(false);
       } catch (err) {
-        console.error("Error fetching revenue:", err);
+        console.error("Error fetching lifetime revenue:", err);
         setError("Failed to fetch data.");
         setLoading(false);
       }
     };
 
-    fetchRevenue();
+    fetchLifetimeRevenue();
   }, [userId]);
 
   return (
@@ -67,7 +48,7 @@ const LifetimeRevenueCard = () => {
         <span className="text-xs bg-yellow-600 px-3 py-1 rounded-full text-white font-semibold shadow-md">
           Lifetime Revenue
         </span>
-        <div className="ml-2 sm:ml-4"> {/* Push three dots slightly right */}
+        <div className="ml-2 sm:ml-4">
           <Image
             src="/more.png"
             alt="More"
@@ -82,8 +63,8 @@ const LifetimeRevenueCard = () => {
       <h1
         className="font-bold my-3 text-yellow-400 tracking-wide sm:text-left text-center"
         style={{
-          fontSize: "clamp(1.5rem, 5vw, 2.25rem)", // Responsive font size
-          wordBreak: "break-word", // Prevent overflow
+          fontSize: "clamp(1.5rem, 5vw, 2.25rem)",
+          wordBreak: "break-word",
           overflowWrap: "break-word",
         }}
       >

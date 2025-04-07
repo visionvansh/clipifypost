@@ -4,10 +4,6 @@ import React, { useEffect, useState } from "react";
 import { useAuth } from "@clerk/nextjs";
 import Image from "next/image";
 
-const SPREADSHEET_ID = "1G-Zp3rE9ASxbHJSycSrgktEMCXYGldXdPAi1JlhCzkw";
-const API_KEY = "AIzaSyDnfCVlTNgP7UV3s87vhzKvTLstXL3syC0";
-const SHEET_NAME = "Sheet1";
-
 const LifetimeViews = () => {
   const { userId } = useAuth();
   const [views, setViews] = useState<string | null>(null);
@@ -17,47 +13,32 @@ const LifetimeViews = () => {
   useEffect(() => {
     if (!userId) return;
 
-    const fetchViews = async () => {
-      const URL = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${SHEET_NAME}?key=${API_KEY}`;
-
+    const fetchLifetimeViews = async () => {
       try {
-        const response = await fetch(URL);
+        const response = await fetch(`/api/views?studentId=${userId}`);
         const data = await response.json();
 
-        if (!data.values) {
-          setError("No data found.");
+        if (!data || data.length === 0) {
+          setError("0"); // No views found, show 0
           setLoading(false);
           return;
         }
 
-        const headers: string[] = data.values[0];
-        const userIdIndex = headers.indexOf("userId");
-        const viewsIndex = headers.indexOf("views");
+        // Calculate total lifetime views
+        const totalViews = data.reduce((sum: number, record: { views: string }) => {
+          return sum + (parseInt(record.views) || 0);
+        }, 0);
 
-        if (userIdIndex === -1 || viewsIndex === -1) {
-          setError("Invalid column names.");
-          setLoading(false);
-          return;
-        }
-
-        const userRow = data.values.find((row: string[]) => row[userIdIndex] === userId);
-
-        if (!userRow) {
-          setError("0");
-          setLoading(false);
-          return;
-        }
-
-        setViews(parseFloat(userRow[viewsIndex]).toLocaleString());
+        setViews(totalViews.toLocaleString());
         setLoading(false);
       } catch (err) {
-        console.error("Error fetching views:", err);
+        console.error("Error fetching lifetime views:", err);
         setError("Failed to fetch data.");
         setLoading(false);
       }
     };
 
-    fetchViews();
+    fetchLifetimeViews();
   }, [userId]);
 
   return (
@@ -67,7 +48,7 @@ const LifetimeViews = () => {
         <span className="text-xs bg-blue-600 px-3 py-1 rounded-full text-white font-semibold shadow-md">
           Lifetime Views
         </span>
-        <div className="ml-2 sm:ml-4"> {/* Push dots slightly to the right */}
+        <div className="ml-2 sm:ml-4">
           <Image
             src="/more.png"
             alt="More"
@@ -82,8 +63,8 @@ const LifetimeViews = () => {
       <h1
         className="font-bold my-3 text-blue-400 tracking-wide sm:text-left text-center"
         style={{
-          fontSize: "clamp(1.5rem, 5vw, 2.25rem)", // Responsive font size
-          wordBreak: "break-word", // Prevent overflow
+          fontSize: "clamp(1.5rem, 5vw, 2.25rem)",
+          wordBreak: "break-word",
           overflowWrap: "break-word",
         }}
       >
