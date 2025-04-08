@@ -75,13 +75,8 @@ const ViewsListPage = async ({
           <div className="flex flex-col md:flex-row items-center gap-4 w-full md:w-auto">
             <TableSearch />
             <div className="flex items-center gap-4 self-end">
-              <button className="w-8 h-8 flex items-center justify-center rounded-full bg-lamaYellow">
-                <Image src="/filter.png" alt="Filter" width={14} height={14} />
-              </button>
-              <button className="w-8 h-8 flex items-center justify-center rounded-full bg-lamaYellow">
-                <Image src="/sort.png" alt="Sort" width={14} height={14} />
-              </button>
-              {role === "admin" && <FormContainer table="views" type="create" />}
+              
+            
             </div>
           </div>
         </div>

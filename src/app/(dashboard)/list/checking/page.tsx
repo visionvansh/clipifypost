@@ -29,7 +29,7 @@ export default async function CheckingPage() {
       key={student.id}
       className="border-b border-gray-700 even:bg-gray-800 text-sm hover:bg-gray-700 transition-all"
     >
-      <td className="text-gray-400 p-4">{student.email}</td> {/* id ki jagah email */}
+      <td className="text-gray-400 p-4">{student.email}</td>
       <td className="text-gray-300 p-4">{student.username}</td>
       <td>
         <a
@@ -43,20 +43,20 @@ export default async function CheckingPage() {
   );
 
   return (
-    <div className="bg-gray-900 min-h-screen w-full flex justify-center">
-      <div className="bg-gray-900 p-4 rounded-md flex-1 m-4 mt-0 max-w-7xl w-full">
+    <div className="bg-black w-full h-screen overflow-hidden">
+      <div className="p-6 h-full overflow-y-auto text-white">
         {/* Header */}
         <div className="flex flex-col gap-2 w-full mb-4">
-          <h1 className="text-xl md:text-2xl font-bold text-gray-300">Admin Dashboard</h1>
+          <h1 className="text-2xl font-extrabold tracking-wide text-yellow-400">📋 Checking Page</h1>
           <h2 className="text-lg md:text-xl font-bold text-gray-300">Users</h2>
         </div>
 
         {/* Table */}
-        <div className="overflow-x-auto bg-gray-900 rounded-md">
+        <div className="overflow-x-auto bg-gray-900 border border-gray-700 rounded-md">
           <Table columns={columns} renderRow={renderRow} data={studentWithEmails} />
         </div>
 
-        {/* Pagination Placeholder (if needed) */}
+        {/* Optional Pagination */}
         {/* <Pagination page={1} count={students.length} /> */}
       </div>
     </div>
