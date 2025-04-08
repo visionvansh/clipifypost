@@ -8,7 +8,7 @@ const menuItems = [
     title: "MENU",
     items: [
       { icon: "/homex.png", label: "Home", href: "/", visible: ["admin", "manager", "users", "new-users"] },
-      { icon: "/managerx.png", label: "Manager", href: "/list/manager", visible: ["admin"] },
+      { icon: "/managerx.png", label: "Manager", href: "/list/manager", visible: ["manager"] },
       { icon: "/userx.png", label: "Users", href: "/list/users", visible: ["admin", "manager"] },
       { icon: "/new-userx.png", label: "New Users", href: "/list/new-users", visible: ["manager"] },
       { icon: "/positionx.png", label: "Positions", href: "/list/positions", visible: ["admin", "manager", "users", "new-users"] },

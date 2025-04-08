@@ -2,12 +2,15 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   images: {
-    domains: [
-      "drive.google.com", // Google Drive thumbnails
-      "www.powertrafic.fr", // Pehle wala domain
-      "example.com",
-      "i.ibb.co", // ImgBB
-      "deep-image.ai", // Naya domain add kiya
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "res.cloudinary.com", // Cloudinary ke liye
+      },
+      {
+        protocol: "https",
+        hostname: "www.powertrafic.fr", // Naya hostname jo error de raha hai
+      },
     ],
   },
   };

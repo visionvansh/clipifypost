@@ -1,6 +1,14 @@
 import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
+import { v2 as cloudinary } from "cloudinary";
+
+// Cloudinary configuration
+cloudinary.config({
+  cloud_name: process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.NEXT_PUBLIC_CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
 
 export default async function AddCompanyPage() {
   const authData = await auth();
@@ -15,21 +23,39 @@ export default async function AddCompanyPage() {
 
     const name = formData.get("name") as string;
     const rate = formData.get("rate") as string;
-    const image = formData.get("image") as string;
+    const imageFile = formData.get("image") as File;
     const tutorialDriveLink = formData.get("tutorialDriveLink") as string;
     const thumbnailUrl = formData.get("thumbnailUrl") as string;
     const description = formData.get("description") as string;
     const contentLink = formData.get("contentLink") as string;
 
-    if (!name || !rate || !image || !tutorialDriveLink || !thumbnailUrl || !description || !contentLink) {
+    if (!name || !rate || !imageFile || !tutorialDriveLink || !thumbnailUrl || !description || !contentLink) {
       throw new Error("Saare fields bharo bhai!");
     }
+
+    // Image ko Cloudinary pe upload karo
+    const bytes = await imageFile.arrayBuffer();
+    const buffer = Buffer.from(bytes);
+
+    const uploadResult = await new Promise((resolve, reject) => {
+      cloudinary.uploader
+        .upload_stream(
+          { resource_type: "image", public_id: `${Date.now()}-${imageFile.name}` },
+          (error, result) => {
+            if (error) reject(error);
+            else resolve(result);
+          }
+        )
+        .end(buffer);
+    });
+
+    const imageUrl = (uploadResult as any).secure_url; // Cloudinary se mila URL
 
     await prisma.company.create({
       data: {
         name,
         rate,
-        image,
+        image: imageUrl,
         tutorialVideo: tutorialDriveLink,
         thumbnailUrl,
         description,
@@ -50,6 +76,7 @@ export default async function AddCompanyPage() {
         <form
           action={handleSubmit}
           className="bg-gray-900 p-6 rounded-lg shadow-lg w-full max-w-md border border-gray-700"
+          encType="multipart/form-data"
         >
           <div className="mb-4">
             <label htmlFor="name" className="text-gray-100 text-sm font-semibold mb-1 block">
@@ -81,13 +108,13 @@ export default async function AddCompanyPage() {
 
           <div className="mb-4">
             <label htmlFor="image" className="text-gray-100 text-sm font-semibold mb-1 block">
-              Logo URL
+              Logo Image
             </label>
             <input
-              type="url"
+              type="file"
               id="image"
               name="image"
-              placeholder="https://example.com/logo.png"
+              accept="image/*"
               className="w-full p-2 rounded-md bg-gray-700 text-gray-200 border border-gray-600 focus:outline-none focus:border-red-600 text-sm"
               required
             />

@@ -8,7 +8,7 @@ export default async function PasteLinkPage() {
 
   if (!userId) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-[#0a0a0f]">
+      <div className="flex items-center justify-center min-h-screen bg-black">
         <h1 className="text-gray-300 text-xl font-medium">
           Please sign in to continue!
         </h1>
@@ -22,8 +22,8 @@ export default async function PasteLinkPage() {
 
   if (!user) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-[#0a0a0f]">
-        <h1 className="text-gray-300 text-xl font-medium">
+      <div className="flex items-center justify-center min-h-screen bg-black">
+        <h1 className="text-gray-300 text-xl font-medium text-center">
           User not found in database! <br /> UserID: {userId}
         </h1>
       </div>
@@ -34,7 +34,7 @@ export default async function PasteLinkPage() {
 
   if (companies.length === 0) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-[#0a0a0f]">
+      <div className="flex items-center justify-center min-h-screen bg-black">
         <h1 className="text-gray-300 text-xl font-medium">
           No companies found in the database!
         </h1>
@@ -43,11 +43,12 @@ export default async function PasteLinkPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0a0a0f] px-6 py-12 text-white">
-      <div className="max-w-7xl mx-auto">
+    <div className="bg-black w-full h-screen overflow-hidden">
+      <div className="p-6 h-full overflow-y-auto text-white max-w-7xl mx-auto">
         <h1 className="text-4xl font-extrabold mb-12 flex items-center gap-3 tracking-tight">
           Promote Companies, Earn with Clips! <span className="text-5xl">🎥</span>
         </h1>
+
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-10">
           {companies.map((company) => (
             <div
