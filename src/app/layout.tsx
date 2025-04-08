@@ -1,4 +1,3 @@
-
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
@@ -12,9 +11,11 @@ export const metadata: Metadata = {
   title: "Clipify Post",
   description: "Paste Video Link Here",
   icons: {
-    icon: "/bestlogo.png", // This sets the favicon in the browser tab
+    icon: "/bestlogo.png",
   },
 };
+
+export const dynamic = 'force-dynamic';
 
 export default function RootLayout({
   children,
