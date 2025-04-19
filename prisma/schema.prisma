@@ -30,6 +30,8 @@ model Student {
   assignment   Assignment[]
   class        Class[]
   accounts     Account[] // Ek user ke multiple accounts
+  userReel  UserReel[]
+  userLinks   UserLink[]
 }
 
 model Teacher {
@@ -196,4 +198,60 @@ model Settings {
   id    Int    @id @default(autoincrement())
   key   String @unique
   value String
+}
+
+model UserReel {
+  id              Int           @id @default(autoincrement())
+  studentId       String
+  brandId         Int
+  videoUrl        String?
+  storageProvider String?
+  fileSize        Int?
+  status          UploadStatus  @default(PENDING)
+  publishedUrl    String?
+  views           Int           @default(0)
+  viewsLocked     Boolean       @default(false)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  student         Student       @relation(fields: [studentId], references: [id])
+  brand           Brand         @relation(fields: [brandId], references: [id])
+  reel            ReelStatusHistory[] 
+}
+
+model Brand {
+  id          Int           @id @default(autoincrement())
+  name        String        @unique
+  description String?
+  rate        Float         // Dollars per 100k views
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  reels       UserReel[]
+  userLinks   UserLink[]
+}
+
+
+model UserLink {
+  id          Int           @id @default(autoincrement())
+  userId      String
+  brandId     Int
+  link        String
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  user        Student       @relation(fields: [userId], references: [id])
+  brand       Brand         @relation(fields: [brandId], references: [id])
+}
+
+enum UploadStatus {
+  PENDING
+  APPROVED
+  DISAPPROVED
+}
+
+model ReelStatusHistory {
+  id        Int      @id @default(autoincrement())
+  reelId    Int
+  status    String   // PENDING, APPROVED, DISAPPROVED
+  views     Int      // Views at the time of status change
+  createdAt DateTime @default(now())
+  reel      UserReel @relation(fields: [reelId], references: [id])
 }

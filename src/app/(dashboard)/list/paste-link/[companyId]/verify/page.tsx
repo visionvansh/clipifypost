@@ -5,7 +5,7 @@ import Link from "next/link";
 import ClientVerifyForm from "./ClientVerifyForm";
 
 const isValidSocialLink = (link: string): boolean => {
-  const instagramRegex = /^https?:\/\/(www\.)?instagram\.com\/[a-zA-Z0-9_.]+\/?$/;
+  const instagramRegex = /^https?:\/\/(www\.)?instagram\.com\/[a-zA-Z0-9_.]+(\/|\?.*)?$/;
   const youtubeRegex = /^https?:\/\/(www\.)?(youtube\.com|youtu\.be)\/[a-zA-Z0-9_.-]+\/?$/;
   const tiktokRegex = /^https?:\/\/(www\.)?tiktok\.com\/@[a-zA-Z0-9_.]+\/?$/;
   return instagramRegex.test(link) || youtubeRegex.test(link) || tiktokRegex.test(link);
@@ -111,7 +111,9 @@ export default async function VerifyPage({ params }: { params: { companyId: stri
 
       {/* Main Content with Adjusted Padding */}
       <div className="w-full max-w-6xl mx-auto pt-40 sm:pt-16 pb-4 px-4 sm:px-6 flex-grow">
-        <h2 className="text-2xl sm:text-3xl font-extrabold text-white mb-4 tracking-tight">Verify Your Account 🔥</h2>
+        <h2 className="text-4xl md:text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-red-400 to-purple-600 tracking-tight transform rotate-3d mb-7">
+          Verify Your Account 🔥
+        </h2>
         <ClientVerifyForm handleAccountSubmit={handleAccountSubmit} handleVerify={handleVerify} initialAccounts={displayedAccounts} />
         {user.accounts.length > 2 && (
           <div className="mt-4 flex justify-center">

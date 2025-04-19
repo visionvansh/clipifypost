@@ -11,17 +11,15 @@ const menuItems = [
       { icon: "/managerx.png", label: "Manager", href: "/list/manager", visible: ["manager"] },
       { icon: "/userx.png", label: "Users", href: "/list/users", visible: ["admin", "manager"] },
       { icon: "/new-userx.png", label: "New Users", href: "/list/new-users", visible: ["manager"] },
-      { icon: "/positionx.png", label: "Positions", href: "/list/positions", visible: ["admin", "manager", "users", "new-users"] },
-   
       { icon: "/uploadx.png", label: "Uploaders", href: "/list/paste-link", visible: [ "users", "new-users"] },
-      { icon: "/add-profilex.png", label: "Add Profile", href: "/list/add-social-profile", visible: ["users", "new-users"] },
+      { icon: "/add-profilex.png", label: "Editors", href: "/list/editors", visible: ["users", "new-users"] },
       { icon: "/revenuex.png", label: "Revenue", href: "/list/revenue", visible: ["admin", "manager"] },
-      
       { icon: "/viewsx.png", label: "Views", href: "/list/views", visible: ["admin", "manager"] },
       { icon: "/paymentx.png", label: "Payment", href: "/list/payment", visible: ["users","new-users"] },
-      { icon: "/paymentx.png", label: "Payment Data", href: "/list/payment-table", visible: ["admin"] },
-      { icon: "/checkx.png", label: "Checking", href: "/list/checking", visible: ["admin"] },
+      { icon: "/checkx.png", label: "Uploaders Pannel", href: "/list/checking", visible: ["admin"] },
+      { icon: "/positionx.png", label: "Editors Pannel", href: "/list/editors-checking", visible: ["admin"] },
       { icon: "/addx.png", label: "Add Promotion", href: "/list/social-profiles", visible: ["admin", "manager"] },
+      { icon: "/paymentx.png", label: "Payment Data", href: "/list/payment-table", visible: ["admin"] },
     ],
   },
 ];

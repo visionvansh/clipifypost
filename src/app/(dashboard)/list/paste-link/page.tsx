@@ -45,9 +45,9 @@ export default async function PasteLinkPage() {
   return (
     <div className="bg-black w-full h-screen overflow-hidden">
       <div className="p-6 h-full overflow-y-auto text-white max-w-7xl mx-auto">
-        <h1 className="text-4xl font-extrabold mb-12 flex items-center gap-3 tracking-tight">
-          Promote Companies, Earn with Clips! <span className="text-5xl">🎥</span>
-        </h1>
+      <h1 className="text-6xl md:text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-600 tracking-tight transform rotate-3d mb-12 gap-3">
+      Promote Companies, Earn with Clips! <span>🎥</span>
+            </h1>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-10">
           {companies.map((company) => (

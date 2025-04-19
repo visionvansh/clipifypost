@@ -27,10 +27,8 @@ export default function Announcements() {
     if (userId) {
       const fetchPaymentData = async () => {
         try {
-          console.log(`Fetching data for userId: ${userId}`);
           const response = await fetch(`${baseUrl}/api/payments/${userId}`);
           const text = await response.text();
-          console.log("GET Response:", text);
 
           if (response.ok) {
             const data = JSON.parse(text);
@@ -63,14 +61,12 @@ export default function Announcements() {
     const title = `${data.username}(${data.paymentMethod})`;
     const description = data.paymentDetails;
     try {
-      console.log(`Saving data for userId: ${data.userId}`, { title, description });
       const response = await fetch(`${baseUrl}/api/payments/${data.userId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, description }), // Removed date
+        body: JSON.stringify({ title, description }),
       });
       const text = await response.text();
-      console.log("PUT Response:", text);
 
       if (response.ok) {
         const savedData = JSON.parse(text);
@@ -93,40 +89,56 @@ export default function Announcements() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center px-6 py-8">
-      <div className="w-full max-w-3xl p-6 bg-gray-800 rounded-lg shadow-md">
-        <h1 className="text-3xl font-bold mb-6 text-center">Manage Your Payment</h1>
-
-        {showForm ? (
-          <PositionForm onSave={handleSavePayment} userId={userId} username={username} />
-        ) : (
-          <div className="bg-gray-700 p-6 rounded-md shadow-md">
-            <h2 className="text-xl font-semibold flex items-center mb-4">
-              <FaUser className="mr-2 text-blue-400" /> Your Payment Details
-            </h2>
-            <p className="flex items-center">
-              <FaUser className="mr-2 text-yellow-400" /> <strong>Username:</strong>{" "}
-              {paymentData?.username}
-            </p>
-            <p className="flex items-center mt-2">
-              <FaCreditCard className="mr-2 text-green-400" /> <strong>Method:</strong>{" "}
-              {paymentData?.paymentMethod}
-            </p>
-            <p className="flex items-center mt-2">
-              <FaCreditCard className="mr-2 text-purple-400" /> <strong>Details:</strong>{" "}
-              {paymentData?.paymentDetails}
-            </p>
-
-            <div className="mt-6">
-              <button
-                className="bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded-md flex items-center"
-                onClick={() => setShowForm(true)}
-              >
-                <FaEdit className="mr-2" /> Update
-              </button>
-            </div>
+    <div className="bg-black w-full h-screen overflow-hidden">
+      <div className="p-6 h-full overflow-y-auto text-white">
+        <div className="max-w-4xl w-full mx-auto space-y-8">
+          <div className="flex flex-col md:flex-row justify-between items-center gap-6">
+          <h1 className="text-3xl md:text-4xl font-bold tracking-tight transform rotate-3d flex items-center gap-3">
+    <span className="text-purple-400">
+      💳
+    </span>
+    <span className="bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-600">
+      Manage Your Payment
+    </span>
+  </h1>
           </div>
-        )}
+
+          <div className="backdrop-blur-md bg-gray-900 p-6 rounded-xl shadow-2xl shadow-black/60 border border-gray-700/50 transform rotate-3d">
+            {showForm ? (
+              <PositionForm onSave={handleSavePayment} userId={userId} username={username} />
+            ) : (
+              <div className="space-y-4">
+                <div className="text-xl font-semibold flex items-center gap-2">
+                  <FaUser className="text-blue-400" /> Your Payment Details
+                </div>
+
+                <div className="bg-gray-800/30 p-4 rounded-lg space-y-3">
+                  <p className="flex items-center gap-2">
+                    <FaUser className="text-yellow-400" />
+                    <span><strong>Username:</strong> {paymentData?.username}</span>
+                  </p>
+                  <p className="flex items-center gap-2">
+                    <FaCreditCard className="text-green-400" />
+                    <span><strong>Method:</strong> {paymentData?.paymentMethod}</span>
+                  </p>
+                  <p className="flex items-center gap-2">
+                    <FaCreditCard className="text-purple-400" />
+                    <span><strong>Details:</strong> {paymentData?.paymentDetails}</span>
+                  </p>
+                </div>
+
+                <div className="pt-4">
+                  <button
+                    className="bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded-md flex items-center"
+                    onClick={() => setShowForm(true)}
+                  >
+                    <FaEdit className="mr-2" /> Update
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );

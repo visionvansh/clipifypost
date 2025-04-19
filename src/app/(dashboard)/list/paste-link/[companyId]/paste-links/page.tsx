@@ -19,7 +19,7 @@ type Clip = {
   accountId: number;
   link: string;
   views: number;
-  previousApprovedViews: number | null; // Added
+  previousApprovedViews: number | null;
   status: string;
   account: Account;
 };
@@ -32,6 +32,60 @@ const extractUsername = (url: string): string => {
     return username || url;
   } catch {
     return url;
+  }
+};
+
+const isValidClipLink = (link: string): boolean => {
+  const instagramRegex = /^https?:\/\/(www\.)?instagram\.com\/(reel|p)\/[A-Za-z0-9_-]+(\/|\?.*)?$/;
+  const youtubeRegex = /^https?:\/\/(www\.)?(youtube\.com\/(watch\?v=|shorts\/)|youtu\.be\/)[A-Za-z0-9_-]+(\/|\?.*)?$/;
+  const tiktokRegex = /^https?:\/\/(www\.)?tiktok\.com\/@[A-Za-z0-9_.]+\/video\/\d+(\/|\?.*)?$/;
+  
+  // Debugging log (remove in production)
+  console.log("Validating link:", link, {
+    instagram: instagramRegex.test(link),
+    youtube: youtubeRegex.test(link),
+    tiktok: tiktokRegex.test(link),
+  });
+  
+  return instagramRegex.test(link) || youtubeRegex.test(link) || tiktokRegex.test(link);
+};
+
+const extractClipId = (link: string): string | null => {
+  try {
+    const parsedUrl = new URL(link);
+    const path = parsedUrl.pathname;
+
+    // Instagram: /reel/DImfF7qB_gb/ or /p/DImfF7qB_gb/
+    if (link.includes("instagram.com")) {
+      const match = path.match(/\/(reel|p)\/([A-Za-z0-9_-]+)/);
+      console.log("Instagram match:", match); // Debugging log
+      return match ? match[2] : null;
+    }
+
+    // YouTube: /watch?v=dQw4w9WgXcQ, /shorts/dQw4w9WgXcQ, youtu.be/dQw4w9WgXcQ
+    if (link.includes("youtube.com") || link.includes("youtu.be")) {
+      if (path.includes("/watch")) {
+        const params = new URLSearchParams(parsedUrl.search);
+        const id = params.get("v");
+        console.log("YouTube watch ID:", id); // Debugging log
+        return id || null;
+      }
+      const match = path.match(/\/(shorts\/)?([A-Za-z0-9_-]+)/);
+      console.log("YouTube match:", match); // Debugging log
+      return match ? match[2] : null;
+    }
+
+    // TikTok: /@username/video/1234567890123456789
+    if (link.includes("tiktok.com")) {
+      const match = path.match(/\/video\/(\d+)/);
+      console.log("TikTok match:", match); // Debugging log
+      return match ? match[1] : null;
+    }
+
+    return null;
+  } catch (error) {
+    console.error("Error extracting clip ID:", error); // Debugging log
+    return null;
   }
 };
 
@@ -77,13 +131,37 @@ export default async function PasteLinksPage({ params }: { params: { companyId: 
     const views = parseInt(formData.get("views") as string);
     const companyId = parseInt(formData.get("companyId") as string);
 
-    const existingClip = await prisma.clip.findFirst({ where: { link, companyId } });
-    if (existingClip) {
-      throw new Error("Duplicate link detected! Please use a unique link.");
+    if (!isValidClipLink(link)) {
+      throw new Error("Invalid clip link! Please provide a valid Instagram reel, YouTube video, or TikTok clip link.");
+    }
+
+    const clipId = extractClipId(link);
+    if (!clipId) {
+      throw new Error("Could not extract clip ID from the link!");
+    }
+
+    // Fetch all clips for the company and check for duplicate clipId
+    const existingClips = await prisma.clip.findMany({
+      where: { companyId },
+      select: { link: true },
+    });
+    const isDuplicate = existingClips.some((clip) => {
+      const existingClipId = extractClipId(clip.link);
+      return existingClipId === clipId;
+    });
+    if (isDuplicate) {
+      throw new Error("Duplicate clip detected! This clip has already been submitted for this company.");
     }
 
     const newClip = await prisma.clip.create({
-      data: { accountId, companyId, link, views, status: "pending", previousApprovedViews: null },
+      data: {
+        accountId,
+        companyId,
+        link,
+        views,
+        status: "pending",
+        previousApprovedViews: null,
+      },
       include: { account: true },
     });
 

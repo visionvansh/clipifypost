@@ -47,7 +47,9 @@ export default async function CheckingPage() {
       <div className="p-6 h-full overflow-y-auto text-white">
         {/* Header */}
         <div className="flex flex-col gap-2 w-full mb-4">
-          <h1 className="text-2xl font-extrabold tracking-wide text-yellow-400">📋 Checking Page</h1>
+        <h1 className="text-3xl md:text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-600 tracking-tight transform rotate-3d">
+               UPLOADERS CHECKING PANNEL
+            </h1>
           <h2 className="text-lg md:text-xl font-bold text-gray-300">Users</h2>
         </div>
 

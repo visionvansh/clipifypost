@@ -203,7 +203,7 @@ export default function ClientVerifyForm({
 
       {/* Accounts List */}
       <div className="mt-3 sm:mt-4 w-full">
-        <h3 className="text-lg sm:text-xl font-bold text-white mb-2 sm:mb-3 tracking-tight">Your Accounts 📋</h3>
+        <h3 className="text-2xl sm:text-xl font-bold text-white mb-2 sm:mb-3 tracking-tight  bg-clip-text text-transparent bg-gradient-to-r from-pink-400 to-purple-600  transform rotate-3d ">Your Accounts <span>📋</span></h3>
         {accounts.length === 0 ? (
           <p className="text-gray-400 text-xs sm:text-sm">No accounts submitted yet. 😢</p>
         ) : (
