@@ -16,6 +16,8 @@ type UserReelWithBrand = Prisma.UserReelGetPayload<{
 type Brand = {
   id: number;
   name: string;
+  description?: string | null;
+  rate: number;
 };
 
 interface AddSocialProfilePageProps {
@@ -52,7 +54,7 @@ const AddSocialProfilePage = async ({
       skip: ITEM_PER_PAGE * (p - 1),
     }),
     prisma.userReel.count({ where: query }),
-    prisma.brand.findMany({ select: { id: true, name: true } }),
+    prisma.brand.findMany({ select: { id: true, name: true, description: true, rate: true } }),
   ]);
 
   return (
@@ -71,7 +73,17 @@ const AddSocialProfilePage = async ({
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             <Suspense fallback={<div>Loading brands...</div>}>
               {brands.map((brand: Brand) => (
-                <BrandCard key={brand.id} brand={brand} />
+                <BrandCard
+                  key={brand.id}
+                  brand={{
+                    id: brand.id,
+                    name: brand.name,
+                    description: brand.description
+                      ? brand.description.split(/\./).filter((s) => s.trim())
+                      : [],
+                    rate: brand.rate,
+                  }}
+                />
               ))}
             </Suspense>
           </div>

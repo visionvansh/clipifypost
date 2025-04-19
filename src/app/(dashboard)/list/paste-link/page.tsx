@@ -45,9 +45,9 @@ export default async function PasteLinkPage() {
   return (
     <div className="bg-black w-full h-screen overflow-hidden">
       <div className="p-6 h-full overflow-y-auto text-white max-w-7xl mx-auto">
-      <h1 className="text-6xl md:text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-600 tracking-tight transform rotate-3d mb-12 gap-3">
-      Promote Companies, Earn with Clips! <span>🎥</span>
-            </h1>
+        <h1 className="text-6xl md:text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-600 tracking-tight transform rotate-3d mb-12 gap-3">
+          Promote Companies, Earn with Clips! <span>🎥</span>
+        </h1>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-10">
           {companies.map((company) => (
@@ -65,7 +65,24 @@ export default async function PasteLinkPage() {
               <h2 className="text-2xl font-semibold text-gray-100 mt-6 text-center">
                 {company.name}
               </h2>
-              <p className="text-gray-400 text-center text-sm mt-1">{company.description}</p>
+              {company.description ? (
+                <div className="flex flex-wrap gap-2 mt-1 mb-3 justify-center">
+                  {company.description.split(/[,.]/).map((sentence, index) =>
+                    sentence.trim() ? (
+                      <div
+                        key={index}
+                        className="px-3 py-1 text-sm rounded-full font-medium text-gray-200 bg-gray-900 border border-gray-500 hover:bg-opacity-80 transition-colors duration-200"
+                      >
+                        {sentence.trim()}
+                      </div>
+                    ) : null
+                  )}
+                </div>
+              ) : (
+                <p className="text-gray-400 text-center text-sm mt-1 mb-3">
+                  No description available
+                </p>
+              )}
               <Link href={`/list/paste-link/${company.id}/verify`}>
                 <div className="bg-gradient-to-br from-blue-600 to-purple-700 hover:from-blue-500 hover:to-purple-600 text-white px-7 py-3 rounded-full shadow-lg hover:shadow-2xl transition-all mt-7 mx-auto w-fit text-center cursor-pointer text-sm font-medium tracking-wide">
                   🚀 Get Started
