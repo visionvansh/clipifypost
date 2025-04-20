@@ -60,10 +60,13 @@ const UploadForm: React.FC<UploadFormProps> = ({ brandId, onClose }) => {
             console.error("Upload failed with status:", xhr.status, "response:", xhr.responseText);
             setUploading(false);
             try {
-              const errorResponse = JSON.parse(xhr.responseText);
-              alert(`Upload failed: ${errorResponse.error}${errorResponse.details ? ` - ${errorResponse.details}` : ''}`);
-            } catch {
-              alert(`Upload failed: ${xhr.status} ${xhr.statusText || "Unknown error"}`);
+              const errorResponse = xhr.responseText ? JSON.parse(xhr.responseText) : {};
+              const errorMsg = errorResponse.error || "Unknown error";
+              const details = errorResponse.details ? ` - ${errorResponse.details}` : "";
+              alert(`Upload failed: ${errorMsg}${details}`);
+            } catch (err) {
+              console.error("Failed to parse error response:", err, "responseText:", xhr.responseText);
+              alert(`Upload failed: ${xhr.status} ${xhr.statusText || "Server error"}`);
             }
           }
         });

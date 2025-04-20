@@ -9,7 +9,7 @@ export async function POST(req: NextRequest) {
   const { userId } = await auth();
   if (!userId) {
     console.log("Unauthorized access");
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json({ error: "Unauthorized", details: "No user authenticated" }, { status: 401 });
   }
 
   const megaEmail = process.env.MEGA_EMAIL;
@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
   if (!megaEmail || !megaPassword) {
     console.log("Mega credentials missing");
     return NextResponse.json(
-      { error: "Mega credentials not configured" },
+      { error: "Mega credentials not configured", details: "Environment variables missing" },
       { status: 500 }
     );
   }
@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
     if (!brandId || !file) {
       console.log("Missing brandId or file:", { brandId, file });
       return NextResponse.json(
-        { error: "Brand ID or file missing" },
+        { error: "Brand ID or file missing", details: "Required form fields not provided" },
         { status: 400 }
       );
     }
@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
     if (file.size > 600 * 1024 * 1024) {
       console.log("File too large:", file.size);
       return NextResponse.json(
-        { error: "File too large (max 600MB)" },
+        { error: "File too large", details: "File exceeds 600MB limit" },
         { status: 400 }
       );
     }
@@ -58,7 +58,7 @@ export async function POST(req: NextRequest) {
     if (!allowedTypes.includes(file.type)) {
       console.log("Invalid file type:", file.type);
       return NextResponse.json(
-        { error: "Invalid file type. Please upload MP4, WebM, or MPEG videos." },
+        { error: "Invalid file type", details: "Please upload MP4, WebM, or MPEG videos" },
         { status: 400 }
       );
     }
@@ -67,7 +67,7 @@ export async function POST(req: NextRequest) {
     if (file.size === 0) {
       console.log("Empty file received");
       return NextResponse.json(
-        { error: "Empty or corrupted file received" },
+        { error: "Empty or corrupted file", details: "Received file has zero size" },
         { status: 400 }
       );
     }
@@ -137,7 +137,7 @@ export async function POST(req: NextRequest) {
   } catch (error: any) {
     console.error("Upload error:", error.message, error.stack);
     return NextResponse.json(
-      { error: "Upload failed", details: error.message },
+      { error: "Upload failed", details: error.message || "Internal server error" },
       { status: 500 }
     );
   }
