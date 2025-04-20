@@ -4,12 +4,18 @@ import { Storage } from "megajs";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(req: NextRequest) {
-  console.log("API /upload-reel called");
+  console.log("API /upload-reel called", {
+    userAgent: req.headers.get("user-agent"),
+    ip: req.ip,
+  });
 
   const { userId } = await auth();
   if (!userId) {
     console.log("Unauthorized access");
-    return NextResponse.json({ error: "Unauthorized", details: "No user authenticated" }, { status: 401 });
+    return NextResponse.json(
+      { error: "Unauthorized", details: "No user authenticated" },
+      { status: 401 }
+    );
   }
 
   const megaEmail = process.env.MEGA_EMAIL;
@@ -77,6 +83,15 @@ export async function POST(req: NextRequest) {
     const fileData = Buffer.from(arrayBuffer);
     console.log("File converted to Buffer:", fileData.length);
 
+    // Verify buffer integrity
+    if (fileData.length !== file.size) {
+      console.log("Buffer size mismatch:", { bufferLength: fileData.length, fileSize: file.size });
+      return NextResponse.json(
+        { error: "Corrupted file", details: "Buffer size does not match file size" },
+        { status: 400 }
+      );
+    }
+
     // Initialize Mega storage
     const mega = new Storage({
       email: megaEmail,
@@ -135,7 +150,9 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ message: "Reel uploaded", reel }, { status: 200 });
   } catch (error: any) {
-    console.error("Upload error:", error.message, error.stack);
+    console.error("Upload error:", error.message, error.stack, {
+      userAgent: req.headers.get("user-agent"),
+    });
     return NextResponse.json(
       { error: "Upload failed", details: error.message || "Internal server error" },
       { status: 500 }
