@@ -3,7 +3,9 @@ import { auth } from "@clerk/nextjs/server";
 import prisma from "@/lib/prisma";
 import { google } from "googleapis";
 import { v4 as uuidv4 } from "uuid";
-import { Readable } from "stream";
+import fs from "fs";
+import { promises as fsPromises } from "fs";
+import path from "path";
 
 // Define credentials type
 interface ServiceAccountCredentials {
@@ -15,6 +17,7 @@ export async function POST(req: NextRequest) {
   console.log("API /upload-reel called", {
     userAgent: req.headers.get("user-agent"),
     ip: req.ip,
+    environment: process.env.NODE_ENV || "unknown",
   });
 
   try {
@@ -87,30 +90,32 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Convert file to Buffer
-    console.log("Converting file to Buffer");
+    // Get ArrayBuffer directly
+    console.log("Converting file to ArrayBuffer");
     const arrayBuffer = await file.arrayBuffer();
-    const fileBuffer = Buffer.from(arrayBuffer);
-    console.log("File converted to Buffer:", {
-      bufferLength: fileBuffer.length,
+    const fileData = new Uint8Array(arrayBuffer); // Convert to Uint8Array
+    console.log("File converted to Uint8Array:", {
+      dataLength: fileData.length,
       fileSize: file.size,
     });
 
-    // Verify buffer integrity
-    if (fileBuffer.length !== file.size) {
-      console.log("Buffer size mismatch:", {
-        bufferLength: fileBuffer.length,
+    // Verify data integrity
+    if (fileData.length !== file.size) {
+      console.log("Data size mismatch:", {
+        dataLength: fileData.length,
         fileSize: file.size,
       });
       return NextResponse.json(
-        { error: "Corrupted file", details: "Buffer size does not match file size" },
+        { error: "Corrupted file", details: "Data size does not match file size" },
         { status: 400 }
       );
     }
 
-    // Create a Readable stream from Buffer
-    console.log("Creating Readable stream from Buffer");
-    const fileStream = Readable.from(fileBuffer);
+    // Save file temporarily
+    const tempFilePath = path.join(process.cwd(), "tmp", `${uuidv4()}-${file.name}`);
+    console.log("Saving temporary file:", tempFilePath);
+    await fsPromises.mkdir(path.dirname(tempFilePath), { recursive: true });
+    await fsPromises.writeFile(tempFilePath, fileData);
 
     const fileName = `${uuidv4()}-${file.name}`;
 
@@ -131,6 +136,7 @@ export async function POST(req: NextRequest) {
     });
 
     // Authorize client
+    console.log("Authorizing Google Drive client");
     await authClient.authorize();
     console.log("Google Drive auth successful");
 
@@ -146,12 +152,16 @@ export async function POST(req: NextRequest) {
       },
       media: {
         mimeType: file.type,
-        body: fileStream, // Use Readable stream
+        body: fs.createReadStream(tempFilePath),
       },
       fields: "id, webViewLink",
     });
 
     console.log("Upload result:", response.data);
+
+    // Clean up temporary file
+    console.log("Cleaning up temporary file:", tempFilePath);
+    await fsPromises.unlink(tempFilePath).catch((err) => console.error("Failed to delete temp file:", err));
 
     const videoUrl = response.data.webViewLink;
     if (!videoUrl) {
@@ -181,6 +191,7 @@ export async function POST(req: NextRequest) {
       details: JSON.stringify(error, Object.getOwnPropertyNames(error)),
       userAgent: req.headers.get("user-agent"),
       ip: req.ip,
+      environment: process.env.NODE_ENV || "unknown",
     });
     return NextResponse.json(
       { error: "Upload failed", details: error.message || "An unexpected error occurred" },
