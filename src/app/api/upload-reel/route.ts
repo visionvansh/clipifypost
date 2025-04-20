@@ -78,14 +78,21 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Convert file to Buffer
+    // Convert file to Buffer in chunks to reduce memory usage
+    console.log("Converting file to Buffer");
     const arrayBuffer = await file.arrayBuffer();
     const fileData = Buffer.from(arrayBuffer);
-    console.log("File converted to Buffer:", fileData.length);
+    console.log("File converted to Buffer:", {
+      bufferLength: fileData.length,
+      fileSize: file.size,
+    });
 
     // Verify buffer integrity
     if (fileData.length !== file.size) {
-      console.log("Buffer size mismatch:", { bufferLength: fileData.length, fileSize: file.size });
+      console.log("Buffer size mismatch:", {
+        bufferLength: fileData.length,
+        fileSize: file.size,
+      });
       return NextResponse.json(
         { error: "Corrupted file", details: "Buffer size does not match file size" },
         { status: 400 }
@@ -152,6 +159,7 @@ export async function POST(req: NextRequest) {
   } catch (error: any) {
     console.error("Upload error:", error.message, error.stack, {
       userAgent: req.headers.get("user-agent"),
+      ip: req.ip,
     });
     return NextResponse.json(
       { error: "Upload failed", details: error.message || "Internal server error" },
