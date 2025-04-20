@@ -9,27 +9,27 @@ export async function POST(req: NextRequest) {
     ip: req.ip,
   });
 
-  const { userId } = await auth();
-  if (!userId) {
-    console.log("Unauthorized access");
-    return NextResponse.json(
-      { error: "Unauthorized", details: "No user authenticated" },
-      { status: 401 }
-    );
-  }
-
-  const megaEmail = process.env.MEGA_EMAIL;
-  const megaPassword = process.env.MEGA_PASSWORD;
-
-  if (!megaEmail || !megaPassword) {
-    console.log("Mega credentials missing");
-    return NextResponse.json(
-      { error: "Mega credentials not configured", details: "Environment variables missing" },
-      { status: 500 }
-    );
-  }
-
   try {
+    const { userId } = await auth();
+    if (!userId) {
+      console.log("Unauthorized access");
+      return NextResponse.json(
+        { error: "Unauthorized", details: "No user authenticated" },
+        { status: 401 }
+      );
+    }
+
+    const megaEmail = process.env.MEGA_EMAIL;
+    const megaPassword = process.env.MEGA_PASSWORD;
+
+    if (!megaEmail || !megaPassword) {
+      console.log("Mega credentials missing");
+      return NextResponse.json(
+        { error: "Mega credentials not configured", details: "Environment variables missing" },
+        { status: 500 }
+      );
+    }
+
     // Get form data
     const formData = await req.formData();
     const brandId = formData.get("brandId") as string;
@@ -50,11 +50,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Validate file size (max 600MB)
-    if (file.size > 600 * 1024 * 1024) {
+    // Validate file size (max 100MB to match client)
+    if (file.size > 100 * 1024 * 1024) {
       console.log("File too large:", file.size);
       return NextResponse.json(
-        { error: "File too large", details: "File exceeds 600MB limit" },
+        { error: "File too large", details: "File exceeds 100MB limit" },
         { status: 400 }
       );
     }
@@ -78,7 +78,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Convert file to Buffer in chunks to reduce memory usage
+    // Convert file to Buffer in chunks
     console.log("Converting file to Buffer");
     const arrayBuffer = await file.arrayBuffer();
     const fileData = Buffer.from(arrayBuffer);
@@ -124,7 +124,10 @@ export async function POST(req: NextRequest) {
       );
 
       upload.on("complete", resolve);
-      (upload as any).on("error", (err: Error) => reject(err));
+      (upload as any).on("error", (err: Error) => {
+        console.error("Mega upload error:", err.message, err.stack);
+        reject(err);
+      });
 
       // Set a timeout for the upload (5 minutes)
       setTimeout(() => reject(new Error("Upload timed out")), 300000);

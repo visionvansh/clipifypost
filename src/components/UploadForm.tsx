@@ -68,10 +68,11 @@ const UploadForm: React.FC<UploadFormProps> = ({ brandId, onClose }) => {
         console.log("Fetch response", {
           status: response.status,
           statusText: response.statusText,
+          ok: response.ok,
         });
 
         const text = await response.text(); // Get raw text first
-        console.log("Response text:", text);
+        console.log("Raw response text:", text || "(empty)");
 
         if (response.ok) {
           try {
@@ -99,14 +100,19 @@ const UploadForm: React.FC<UploadFormProps> = ({ brandId, onClose }) => {
             setUploading(false);
             let errorMsg = "Server error";
             let details = "";
-            try {
-              const errorResponse = text && typeof text === "string" ? JSON.parse(text) : {};
-              errorMsg = errorResponse.error || `HTTP ${response.status || "Unknown"}`;
-              details = errorResponse.details ? ` - ${errorResponse.details}` : "";
-            } catch (err) {
-              console.error("Failed to parse error response:", err, "text:", text);
-              errorMsg = response.status ? `HTTP ${response.status}` : "Unknown error";
-              details = typeof response.statusText === "string" && response.statusText ? ` - ${response.statusText}` : "";
+            if (!text) {
+              errorMsg = `HTTP ${response.status || "Unknown"}`;
+              details = response.statusText ? ` - ${response.statusText}` : " - No response body";
+            } else {
+              try {
+                const errorResponse = JSON.parse(text);
+                errorMsg = errorResponse.error || `HTTP ${response.status || "Unknown"}`;
+                details = errorResponse.details ? ` - ${errorResponse.details}` : "";
+              } catch (err) {
+                console.error("Failed to parse error response:", err, "text:", text);
+                errorMsg = response.status ? `HTTP ${response.status}` : "Unknown error";
+                details = response.statusText ? ` - ${response.statusText}` : " - Invalid response";
+              }
             }
             alert(`Upload failed: ${errorMsg}${details}`);
             retryCountRef.current = 0; // Reset retries
@@ -140,10 +146,10 @@ const UploadForm: React.FC<UploadFormProps> = ({ brandId, onClose }) => {
       return;
     }
 
-    // Validate file size (600MB = 600 * 1024 * 1024 bytes)
-    const maxSize = 600 * 1024 * 1024;
+    // Validate file size (100MB = 100 * 1024 * 1024 bytes, temporary limit)
+    const maxSize = 100 * 1024 * 1024;
     if (file.size > maxSize) {
-      alert("File size exceeds 600MB. Please select a smaller video.");
+      alert("File size exceeds 100MB. Please select a smaller video.");
       e.target.value = ""; // Clear the input
       setFileName(null);
       return;
@@ -176,7 +182,7 @@ const UploadForm: React.FC<UploadFormProps> = ({ brandId, onClose }) => {
             htmlFor="reel"
             className="block text-sm font-medium text-gray-300 mb-2"
           >
-            Upload Reel (Max 600MB, MP4/WebM/MPEG)
+            Upload Reel (Max 100MB, MP4/WebM/MPEG)
           </label>
           <div
             className="relative flex items-center justify-center p-4 rounded-lg bg-gray-800/50 border border-gray-600 hover:bg-gray-700/50 transition-all duration-300 cursor-pointer group"
