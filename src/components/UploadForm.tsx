@@ -32,105 +32,101 @@ const UploadForm: React.FC<UploadFormProps> = ({ brandId, onClose }) => {
 
     const attemptUpload = async (): Promise<void> => {
       try {
-        const xhr = new XMLHttpRequest();
+        // Create a stream to track upload progress
+        const stream = new ReadableStream({
+          start(controller) {
+            const reader = (formData as any).get("reel").stream().getReader();
+            let loaded = 0;
+            const total = (formData as any).get("reel").size;
 
-        xhr.upload.addEventListener("progress", (event) => {
-          if (event.lengthComputable) {
-            const percentComplete = (event.loaded / event.total) * 100;
-            setProgress(percentComplete);
-            console.log("Upload progress:", percentComplete);
-          }
-        });
-
-        xhr.addEventListener("load", () => {
-          console.log("XHR load event", {
-            status: xhr.status,
-            responseText: xhr.responseText,
-            statusText: xhr.statusText,
-            responseType: xhr.responseType,
-          });
-          if (xhr.status >= 200 && xhr.status < 300) {
-            try {
-              const response = xhr.responseText ? JSON.parse(xhr.responseText) : { message: "No response body" };
-              console.log("Upload response:", response);
-              setUploading(false);
-              retryCountRef.current = 0; // Reset retries
-              window.location.reload();
-            } catch (err) {
-              console.error("Failed to parse success response:", err, "responseText:", xhr.responseText);
-              setUploading(false);
-              alert("Upload completed but response invalid. Please refresh.");
-            }
-          } else {
-            console.error("Upload failed", {
-              status: xhr.status,
-              responseText: xhr.responseText,
-              statusText: xhr.statusText,
-            });
-            if (retryCountRef.current < maxRetries) {
-              retryCountRef.current += 1;
-              console.log(`Retrying upload, attempt ${retryCountRef.current + 1}`);
-              setTimeout(() => attemptUpload(), 2000); // Retry after 2s
-            } else {
-              setUploading(false);
-              let errorMsg = "Server error";
-              let details = "";
-              try {
-                const errorResponse = xhr.responseText && typeof xhr.responseText === "string" ? JSON.parse(xhr.responseText) : {};
-                errorMsg = errorResponse.error || `HTTP ${xhr.status || "Unknown"}`;
-                details = errorResponse.details ? ` - ${errorResponse.details}` : "";
-              } catch (err) {
-                console.error("Failed to parse error response:", err, "responseText:", xhr.responseText);
-                errorMsg = xhr.status ? `HTTP ${xhr.status}` : "Unknown error";
-                details = typeof xhr.statusText === "string" && xhr.statusText ? ` - ${xhr.statusText}` : "";
+            const pump = async () => {
+              const { done, value } = await reader.read();
+              if (done) {
+                controller.close();
+                return;
               }
-              alert(`Upload failed: ${errorMsg}${details}`);
-              retryCountRef.current = 0; // Reset retries
+              loaded += value.length;
+              const percentComplete = (loaded / total) * 100;
+              setProgress(percentComplete);
+              console.log("Upload progress:", percentComplete);
+              controller.enqueue(value);
+              pump();
+            };
+            pump();
+          },
+        });
+
+        const response = await fetch("/api/upload-reel", {
+          method: "POST",
+          body: formData,
+          headers: {
+            Accept: "application/json",
+          },
+          signal: AbortSignal.timeout(300000), // 5-minute timeout
+        });
+
+        console.log("Fetch response", {
+          status: response.status,
+          statusText: response.statusText,
+        });
+
+        const text = await response.text(); // Get raw text first
+        console.log("Response text:", text);
+
+        if (response.ok) {
+          try {
+            const json = text ? JSON.parse(text) : { message: "No response body" };
+            console.log("Upload response:", json);
+            setUploading(false);
+            retryCountRef.current = 0; // Reset retries
+            window.location.reload();
+          } catch (err) {
+            console.error("Failed to parse success response:", err, "text:", text);
+            setUploading(false);
+            alert("Upload completed but response invalid. Please refresh.");
+          }
+        } else {
+          console.error("Upload failed", {
+            status: response.status,
+            statusText: response.statusText,
+            text,
+          });
+          if (retryCountRef.current < maxRetries) {
+            retryCountRef.current += 1;
+            console.log(`Retrying upload, attempt ${retryCountRef.current + 1}`);
+            setTimeout(() => attemptUpload(), 2000); // Retry after 2s
+          } else {
+            setUploading(false);
+            let errorMsg = "Server error";
+            let details = "";
+            try {
+              const errorResponse = text && typeof text === "string" ? JSON.parse(text) : {};
+              errorMsg = errorResponse.error || `HTTP ${response.status || "Unknown"}`;
+              details = errorResponse.details ? ` - ${errorResponse.details}` : "";
+            } catch (err) {
+              console.error("Failed to parse error response:", err, "text:", text);
+              errorMsg = response.status ? `HTTP ${response.status}` : "Unknown error";
+              details = typeof response.statusText === "string" && response.statusText ? ` - ${response.statusText}` : "";
             }
-          }
-        });
-
-        xhr.addEventListener("error", () => {
-          console.error("XHR error event", {
-            responseText: xhr.responseText,
-            status: xhr.status,
-            statusText: xhr.statusText,
-          });
-          if (retryCountRef.current < maxRetries) {
-            retryCountRef.current += 1;
-            console.log(`Retrying upload, attempt ${retryCountRef.current + 1}`);
-            setTimeout(() => attemptUpload(), 2000); // Retry after 2s
-          } else {
-            setUploading(false);
-            alert("Upload failed due to a network or server error. Please check your connection and try again.");
+            alert(`Upload failed: ${errorMsg}${details}`);
             retryCountRef.current = 0; // Reset retries
           }
+        }
+      } catch (error: any) {
+        console.error("Fetch error:", error.message, {
+          name: error.name,
+          stack: error.stack,
         });
-
-        xhr.addEventListener("timeout", () => {
-          console.error("XHR timeout event", {
-            responseText: xhr.responseText,
-            status: xhr.status,
-          });
-          if (retryCountRef.current < maxRetries) {
-            retryCountRef.current += 1;
-            console.log(`Retrying upload, attempt ${retryCountRef.current + 1}`);
-            setTimeout(() => attemptUpload(), 2000); // Retry after 2s
-          } else {
-            setUploading(false);
-            alert("Upload timed out. Please try again with a better connection.");
-            retryCountRef.current = 0; // Reset retries
-          }
-        });
-
-        xhr.timeout = 300000; // 5-minute timeout
-        xhr.open("POST", "/api/upload-reel");
-        xhr.setRequestHeader("Accept", "application/json");
-        xhr.send(formData);
-      } catch (error) {
-        console.error("Submit error:", error);
-        setUploading(false);
-        alert("Upload failed: Client error - Please try again.");
+        if (retryCountRef.current < maxRetries) {
+          retryCountRef.current += 1;
+          console.log(`Retrying upload, attempt ${retryCountRef.current + 1}`);
+          setTimeout(() => attemptUpload(), 2000); // Retry after 2s
+        } else {
+          setUploading(false);
+          const errorMsg = error.name === "TimeoutError" ? "Upload timed out" : "Network or client error";
+          alert(`${errorMsg}. Please check your connection and try again.`);
+          retryCountRef.current = 0; // Reset retries
+        }
       }
     };
 
