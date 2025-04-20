@@ -10,7 +10,7 @@ interface UploadFormProps {
 
 const UploadForm: React.FC<UploadFormProps> = ({ brandId, onClose }) => {
   const [uploading, setUploading] = useState(false);
-  const [progress, setProgress] = useState(0);
+  const [error, setError] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -21,48 +21,25 @@ const UploadForm: React.FC<UploadFormProps> = ({ brandId, onClose }) => {
     e.preventDefault();
     if (!formRef.current) {
       console.error("Form ref missing");
+      setError("Form error. Please try again.");
       return;
     }
 
     setUploading(true);
-    setProgress(0);
+    setError(null);
     console.log("Submitting form for brandId:", brandId);
 
     const formData = new FormData(formRef.current);
 
     const attemptUpload = async (): Promise<void> => {
       try {
-        // Create a stream to track upload progress
-        const stream = new ReadableStream({
-          start(controller) {
-            const reader = (formData as any).get("reel").stream().getReader();
-            let loaded = 0;
-            const total = (formData as any).get("reel").size;
-
-            const pump = async () => {
-              const { done, value } = await reader.read();
-              if (done) {
-                controller.close();
-                return;
-              }
-              loaded += value.length;
-              const percentComplete = (loaded / total) * 100;
-              setProgress(percentComplete);
-              console.log("Upload progress:", percentComplete);
-              controller.enqueue(value);
-              pump();
-            };
-            pump();
-          },
-        });
-
         const response = await fetch("/api/upload-reel", {
           method: "POST",
           body: formData,
           headers: {
             Accept: "application/json",
           },
-          signal: AbortSignal.timeout(600000), // 10-minute timeout for larger files
+          signal: AbortSignal.timeout(600000), // 10-minute timeout
         });
 
         console.log("Fetch response", {
@@ -71,7 +48,7 @@ const UploadForm: React.FC<UploadFormProps> = ({ brandId, onClose }) => {
           ok: response.ok,
         });
 
-        const text = await response.text(); // Get raw text first
+        const text = await response.text();
         console.log("Raw response text:", text || "(empty)");
 
         if (response.ok) {
@@ -79,12 +56,13 @@ const UploadForm: React.FC<UploadFormProps> = ({ brandId, onClose }) => {
             const json = text ? JSON.parse(text) : { message: "No response body" };
             console.log("Upload response:", json);
             setUploading(false);
-            retryCountRef.current = 0; // Reset retries
+            retryCountRef.current = 0;
+            alert("Video uploaded successfully!");
             window.location.reload();
           } catch (err) {
             console.error("Failed to parse success response:", err, "text:", text);
+            setError("Upload completed but response invalid. Please refresh.");
             setUploading(false);
-            alert("Upload completed but response invalid. Please refresh.");
           }
         } else {
           console.error("Upload failed", {
@@ -95,7 +73,7 @@ const UploadForm: React.FC<UploadFormProps> = ({ brandId, onClose }) => {
           if (retryCountRef.current < maxRetries) {
             retryCountRef.current += 1;
             console.log(`Retrying upload, attempt ${retryCountRef.current + 1}`);
-            setTimeout(() => attemptUpload(), 2000); // Retry after 2s
+            setTimeout(() => attemptUpload(), 2000);
           } else {
             setUploading(false);
             let errorMsg = "Server error";
@@ -114,8 +92,8 @@ const UploadForm: React.FC<UploadFormProps> = ({ brandId, onClose }) => {
                 details = response.statusText ? ` - ${response.statusText}` : " - Invalid response";
               }
             }
-            alert(`Upload failed: ${errorMsg}${details}`);
-            retryCountRef.current = 0; // Reset retries
+            setError(`Upload failed: ${errorMsg}${details}`);
+            retryCountRef.current = 0;
           }
         }
       } catch (error: any) {
@@ -126,12 +104,12 @@ const UploadForm: React.FC<UploadFormProps> = ({ brandId, onClose }) => {
         if (retryCountRef.current < maxRetries) {
           retryCountRef.current += 1;
           console.log(`Retrying upload, attempt ${retryCountRef.current + 1}`);
-          setTimeout(() => attemptUpload(), 2000); // Retry after 2s
+          setTimeout(() => attemptUpload(), 2000);
         } else {
           setUploading(false);
           const errorMsg = error.name === "TimeoutError" ? "Upload timed out" : "Network or client error";
-          alert(`${errorMsg}. Please check your connection and try again.`);
-          retryCountRef.current = 0; // Reset retries
+          setError(`${errorMsg}. Please check your connection and try again.`);
+          retryCountRef.current = 0;
         }
       }
     };
@@ -143,14 +121,15 @@ const UploadForm: React.FC<UploadFormProps> = ({ brandId, onClose }) => {
     const file = e.target.files?.[0];
     if (!file) {
       setFileName(null);
+      setError(null);
       return;
     }
 
     // Validate file size (600MB = 600 * 1024 * 1024 bytes)
     const maxSize = 600 * 1024 * 1024;
     if (file.size > maxSize) {
-      alert("File size exceeds 600MB. Please select a smaller video.");
-      e.target.value = ""; // Clear the input
+      setError("File size exceeds 600MB. Please select a smaller video.");
+      e.target.value = "";
       setFileName(null);
       return;
     }
@@ -158,7 +137,7 @@ const UploadForm: React.FC<UploadFormProps> = ({ brandId, onClose }) => {
     // Validate file type
     const allowedTypes = ["video/mp4", "video/webm", "video/mpeg"];
     if (!allowedTypes.includes(file.type)) {
-      alert("Please upload an MP4, WebM, or MPEG video file.");
+      setError("Please upload an MP4, WebM, or MPEG video file.");
       e.target.value = "";
       setFileName(null);
       return;
@@ -166,6 +145,7 @@ const UploadForm: React.FC<UploadFormProps> = ({ brandId, onClose }) => {
 
     console.log("Selected file:", { name: file.name, size: file.size, type: file.type });
     setFileName(file.name);
+    setError(null);
   };
 
   return (
@@ -205,15 +185,7 @@ const UploadForm: React.FC<UploadFormProps> = ({ brandId, onClose }) => {
             </span>
           </div>
         </div>
-        <div>
-          <progress
-            value={progress}
-            max="100"
-            className={`w-full h-3 rounded-full bg-gray-700/50 [&::-webkit-progress-bar]:bg-gray-700/50 [&::-webkit-progress-value]:bg-gradient-to-r [&::-webkit-progress-value]:from-blue-500 [&::-webkit-progress-value]:to-purple-600 [&::-webkit-progress-value]:rounded-full transition-all duration-300 ${
-              uploading ? "block" : "hidden"
-            }`}
-          ></progress>
-        </div>
+        {error && <p className="text-red-400 text-sm">{error}</p>}
         <div className="flex gap-4">
           <button
             type="submit"

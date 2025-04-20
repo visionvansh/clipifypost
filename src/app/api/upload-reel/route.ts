@@ -1,11 +1,11 @@
+import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import prisma from "@/lib/prisma";
-import { google, drive_v3 } from "googleapis";
-import { NextRequest, NextResponse } from "next/server";
+import { google } from "googleapis";
 import { v4 as uuidv4 } from "uuid";
-import { Readable } from "stream"; // Import Readable for Buffer to stream conversion
+import { Readable } from "stream";
 
-// Define credentials type for TypeScript
+// Define credentials type
 interface ServiceAccountCredentials {
   client_email: string;
   private_key: string;
@@ -43,7 +43,17 @@ export async function POST(req: NextRequest) {
     if (!brandId || !file) {
       console.log("Missing brandId or file:", { brandId, file });
       return NextResponse.json(
-        { error: "Brand ID or file missing", details: "Required form fields not provided" },
+        { error: "Missing required fields", details: "Brand ID or file not provided" },
+        { status: 400 }
+      );
+    }
+
+    // Validate brandId
+    const parsedBrandId = parseInt(brandId);
+    if (isNaN(parsedBrandId)) {
+      console.log("Invalid brandId:", brandId);
+      return NextResponse.json(
+        { error: "Invalid brandId", details: "Brand ID must be a number" },
         { status: 400 }
       );
     }
@@ -68,11 +78,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Check for partial file
+    // Check for empty file
     if (file.size === 0) {
       console.log("Empty file received");
       return NextResponse.json(
-        { error: "Empty or corrupted file", details: "Received file has zero size" },
+        { error: "Empty file", details: "Received file has zero size" },
         { status: 400 }
       );
     }
@@ -80,16 +90,16 @@ export async function POST(req: NextRequest) {
     // Convert file to Buffer
     console.log("Converting file to Buffer");
     const arrayBuffer = await file.arrayBuffer();
-    const fileData = Buffer.from(arrayBuffer);
+    const fileBuffer = Buffer.from(arrayBuffer);
     console.log("File converted to Buffer:", {
-      bufferLength: fileData.length,
+      bufferLength: fileBuffer.length,
       fileSize: file.size,
     });
 
     // Verify buffer integrity
-    if (fileData.length !== file.size) {
+    if (fileBuffer.length !== file.size) {
       console.log("Buffer size mismatch:", {
-        bufferLength: fileData.length,
+        bufferLength: fileBuffer.length,
         fileSize: file.size,
       });
       return NextResponse.json(
@@ -98,34 +108,45 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Convert Buffer to Readable stream
-    const fileStream = Readable.from(fileData);
+    // Create a Readable stream from Buffer
+    console.log("Creating Readable stream from Buffer");
+    const fileStream = Readable.from(fileBuffer);
 
-    // Initialize Google Drive authentication with JWT
-    const credentials: ServiceAccountCredentials = JSON.parse(process.env.GOOGLE_DRIVE_CREDENTIALS!);
+    const fileName = `${uuidv4()}-${file.name}`;
+
+    // Initialize Google Drive authentication
+    const credentials: ServiceAccountCredentials = JSON.parse(process.env.GOOGLE_DRIVE_CREDENTIALS || "{}");
+    if (!credentials.client_email || !credentials.private_key) {
+      console.log("Invalid Google Drive credentials");
+      return NextResponse.json(
+        { error: "Server configuration error", details: "Invalid Google Drive credentials" },
+        { status: 500 }
+      );
+    }
+
     const authClient = new google.auth.JWT({
       email: credentials.client_email,
       key: credentials.private_key,
-      scopes: ["https://www.googleapis.com/auth/drive"],
+      scopes: ["https://www.googleapis.com/auth/drive.file"],
     });
 
-    // Authorize the client
+    // Authorize client
     await authClient.authorize();
+    console.log("Google Drive auth successful");
 
     // Create Drive client
-    const drive: drive_v3.Drive = google.drive({ version: "v3", auth: authClient });
+    const drive = google.drive({ version: "v3", auth: authClient });
 
     // Upload to Google Drive
-    console.log("Starting upload to Google Drive");
-    const fileName = `${uuidv4()}-${file.name}`;
+    console.log("Starting upload to Google Drive:", { fileName, fileSize: file.size });
     const response = await drive.files.create({
       requestBody: {
         name: fileName,
-        parents: [process.env.GOOGLE_DRIVE_FOLDER_ID!],
+        parents: [process.env.GOOGLE_DRIVE_FOLDER_ID || ""],
       },
       media: {
         mimeType: file.type,
-        body: fileStream, // Use Readable stream instead of Buffer
+        body: fileStream, // Use Readable stream
       },
       fields: "id, webViewLink",
     });
@@ -142,7 +163,7 @@ export async function POST(req: NextRequest) {
     const reel = await prisma.userReel.create({
       data: {
         studentId: userId,
-        brandId: parseInt(brandId),
+        brandId: parsedBrandId,
         videoUrl,
         storageProvider: "google_drive",
         fileSize: file.size,
@@ -154,12 +175,15 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ message: "Reel uploaded", reel }, { status: 200 });
   } catch (error: any) {
-    console.error("Upload error:", error.message, error.stack, {
+    console.error("Upload error:", {
+      message: error.message,
+      stack: error.stack,
+      details: JSON.stringify(error, Object.getOwnPropertyNames(error)),
       userAgent: req.headers.get("user-agent"),
       ip: req.ip,
     });
     return NextResponse.json(
-      { error: "Upload failed", details: error.message || "Internal server error" },
+      { error: "Upload failed", details: error.message || "An unexpected error occurred" },
       { status: 500 }
     );
   }
