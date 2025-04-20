@@ -62,7 +62,7 @@ const UploadForm: React.FC<UploadFormProps> = ({ brandId, onClose }) => {
           headers: {
             Accept: "application/json",
           },
-          signal: AbortSignal.timeout(300000), // 5-minute timeout
+          signal: AbortSignal.timeout(600000), // 10-minute timeout for larger files
         });
 
         console.log("Fetch response", {
@@ -146,10 +146,10 @@ const UploadForm: React.FC<UploadFormProps> = ({ brandId, onClose }) => {
       return;
     }
 
-    // Validate file size (100MB = 100 * 1024 * 1024 bytes, temporary limit)
-    const maxSize = 100 * 1024 * 1024;
+    // Validate file size (600MB = 600 * 1024 * 1024 bytes)
+    const maxSize = 600 * 1024 * 1024;
     if (file.size > maxSize) {
-      alert("File size exceeds 100MB. Please select a smaller video.");
+      alert("File size exceeds 600MB. Please select a smaller video.");
       e.target.value = ""; // Clear the input
       setFileName(null);
       return;
@@ -182,7 +182,7 @@ const UploadForm: React.FC<UploadFormProps> = ({ brandId, onClose }) => {
             htmlFor="reel"
             className="block text-sm font-medium text-gray-300 mb-2"
           >
-            Upload Reel (Max 100MB, MP4/WebM/MPEG)
+            Upload Reel (Max 600MB, MP4/WebM/MPEG)
           </label>
           <div
             className="relative flex items-center justify-center p-4 rounded-lg bg-gray-800/50 border border-gray-600 hover:bg-gray-700/50 transition-all duration-300 cursor-pointer group"

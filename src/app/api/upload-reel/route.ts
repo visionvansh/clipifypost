@@ -1,7 +1,15 @@
 import { auth } from "@clerk/nextjs/server";
 import prisma from "@/lib/prisma";
-import { Storage } from "megajs";
+import { google, drive_v3 } from "googleapis";
 import { NextRequest, NextResponse } from "next/server";
+import { v4 as uuidv4 } from "uuid";
+import { Readable } from "stream"; // Import Readable for Buffer to stream conversion
+
+// Define credentials type for TypeScript
+interface ServiceAccountCredentials {
+  client_email: string;
+  private_key: string;
+}
 
 export async function POST(req: NextRequest) {
   console.log("API /upload-reel called", {
@@ -10,23 +18,13 @@ export async function POST(req: NextRequest) {
   });
 
   try {
+    // Authenticate user
     const { userId } = await auth();
     if (!userId) {
       console.log("Unauthorized access");
       return NextResponse.json(
         { error: "Unauthorized", details: "No user authenticated" },
         { status: 401 }
-      );
-    }
-
-    const megaEmail = process.env.MEGA_EMAIL;
-    const megaPassword = process.env.MEGA_PASSWORD;
-
-    if (!megaEmail || !megaPassword) {
-      console.log("Mega credentials missing");
-      return NextResponse.json(
-        { error: "Mega credentials not configured", details: "Environment variables missing" },
-        { status: 500 }
       );
     }
 
@@ -50,11 +48,12 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Validate file size (max 100MB to match client)
-    if (file.size > 100 * 1024 * 1024) {
+    // Validate file size (600MB = 600 * 1024 * 1024 bytes)
+    const maxSize = 600 * 1024 * 1024;
+    if (file.size > maxSize) {
       console.log("File too large:", file.size);
       return NextResponse.json(
-        { error: "File too large", details: "File exceeds 100MB limit" },
+        { error: "File too large", details: "File exceeds 600MB limit" },
         { status: 400 }
       );
     }
@@ -78,7 +77,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Convert file to Buffer in chunks
+    // Convert file to Buffer
     console.log("Converting file to Buffer");
     const arrayBuffer = await file.arrayBuffer();
     const fileData = Buffer.from(arrayBuffer);
@@ -99,49 +98,44 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Initialize Mega storage
-    const mega = new Storage({
-      email: megaEmail,
-      password: megaPassword,
+    // Convert Buffer to Readable stream
+    const fileStream = Readable.from(fileData);
+
+    // Initialize Google Drive authentication with JWT
+    const credentials: ServiceAccountCredentials = JSON.parse(process.env.GOOGLE_DRIVE_CREDENTIALS!);
+    const authClient = new google.auth.JWT({
+      email: credentials.client_email,
+      key: credentials.private_key,
+      scopes: ["https://www.googleapis.com/auth/drive"],
     });
 
-    console.log("Mega login attempt");
-    await new Promise<void>((resolve, reject) => {
-      mega.on("ready", () => resolve());
-      (mega as any).on("error", (err: Error) => reject(err));
-    });
-    console.log("Mega login successful");
+    // Authorize the client
+    await authClient.authorize();
 
-    // Upload to Mega
-    console.log("Starting upload");
-    const uploadResult = await new Promise((resolve, reject) => {
-      const upload = mega.upload(
-        {
-          name: file.name || "reel",
-          size: file.size,
-        },
-        fileData // Pass Buffer directly
-      );
+    // Create Drive client
+    const drive: drive_v3.Drive = google.drive({ version: "v3", auth: authClient });
 
-      upload.on("complete", resolve);
-      (upload as any).on("error", (err: Error) => {
-        console.error("Mega upload error:", err.message, err.stack);
-        reject(err);
-      });
-
-      // Set a timeout for the upload (5 minutes)
-      setTimeout(() => reject(new Error("Upload timed out")), 300000);
+    // Upload to Google Drive
+    console.log("Starting upload to Google Drive");
+    const fileName = `${uuidv4()}-${file.name}`;
+    const response = await drive.files.create({
+      requestBody: {
+        name: fileName,
+        parents: [process.env.GOOGLE_DRIVE_FOLDER_ID!],
+      },
+      media: {
+        mimeType: file.type,
+        body: fileStream, // Use Readable stream instead of Buffer
+      },
+      fields: "id, webViewLink",
     });
 
-    console.log("Upload result:", uploadResult);
+    console.log("Upload result:", response.data);
 
-    // Extract videoUrl using file.link()
-    const videoUrl = await (uploadResult as any).link();
-    console.log("Extracted videoUrl:", videoUrl);
-
-    if (!videoUrl || typeof videoUrl !== "string") {
+    const videoUrl = response.data.webViewLink;
+    if (!videoUrl) {
       console.error("Invalid videoUrl:", videoUrl);
-      throw new Error("Failed to obtain valid video URL from Mega");
+      throw new Error("Failed to obtain valid video URL from Google Drive");
     }
 
     // Save to Prisma
@@ -150,7 +144,7 @@ export async function POST(req: NextRequest) {
         studentId: userId,
         brandId: parseInt(brandId),
         videoUrl,
-        storageProvider: "mega",
+        storageProvider: "google_drive",
         fileSize: file.size,
         status: "PENDING",
       },
