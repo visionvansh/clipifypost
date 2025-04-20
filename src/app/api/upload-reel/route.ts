@@ -29,7 +29,12 @@ export async function POST(req: NextRequest) {
     const brandId = formData.get("brandId") as string;
     const file = formData.get("reel") as File;
 
-    console.log("Form parsed:", { brandId, fileName: file?.name });
+    console.log("Form parsed:", {
+      brandId,
+      fileName: file?.name,
+      fileType: file?.type,
+      fileSize: file?.size,
+    });
 
     if (!brandId || !file) {
       console.log("Missing brandId or file:", { brandId, file });
@@ -39,10 +44,30 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Validate file size (max 600MB)
     if (file.size > 600 * 1024 * 1024) {
       console.log("File too large:", file.size);
       return NextResponse.json(
         { error: "File too large (max 600MB)" },
+        { status: 400 }
+      );
+    }
+
+    // Validate file type
+    const allowedTypes = ["video/mp4", "video/webm", "video/mpeg"];
+    if (!allowedTypes.includes(file.type)) {
+      console.log("Invalid file type:", file.type);
+      return NextResponse.json(
+        { error: "Invalid file type. Please upload MP4, WebM, or MPEG videos." },
+        { status: 400 }
+      );
+    }
+
+    // Check for partial file
+    if (file.size === 0) {
+      console.log("Empty file received");
+      return NextResponse.json(
+        { error: "Empty or corrupted file received" },
         { status: 400 }
       );
     }
@@ -52,7 +77,7 @@ export async function POST(req: NextRequest) {
     const fileData = Buffer.from(arrayBuffer);
     console.log("File converted to Buffer:", fileData.length);
 
-    // Mega upload
+    // Initialize Mega storage
     const mega = new Storage({
       email: megaEmail,
       password: megaPassword,
@@ -65,6 +90,7 @@ export async function POST(req: NextRequest) {
     });
     console.log("Mega login successful");
 
+    // Upload to Mega
     console.log("Starting upload");
     const uploadResult = await new Promise((resolve, reject) => {
       const upload = mega.upload(
@@ -72,11 +98,14 @@ export async function POST(req: NextRequest) {
           name: file.name || "reel",
           size: file.size,
         },
-        fileData // Direct Buffer data
+        fileData // Pass Buffer directly
       );
 
       upload.on("complete", resolve);
       (upload as any).on("error", (err: Error) => reject(err));
+
+      // Set a timeout for the upload (5 minutes)
+      setTimeout(() => reject(new Error("Upload timed out")), 300000);
     });
 
     console.log("Upload result:", uploadResult);
@@ -105,10 +134,10 @@ export async function POST(req: NextRequest) {
     console.log("Reel saved:", reel);
 
     return NextResponse.json({ message: "Reel uploaded", reel }, { status: 200 });
-  } catch (error) {
-    console.error("Upload error:", error);
+  } catch (error: any) {
+    console.error("Upload error:", error.message, error.stack);
     return NextResponse.json(
-      { error: "Upload failed", details: String(error) },
+      { error: "Upload failed", details: error.message },
       { status: 500 }
     );
   }

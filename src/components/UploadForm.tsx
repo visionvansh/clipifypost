@@ -14,6 +14,8 @@ const UploadForm: React.FC<UploadFormProps> = ({ brandId, onClose }) => {
   const [fileName, setFileName] = useState<string | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const retryCountRef = useRef(0);
+  const maxRetries = 2;
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -28,55 +30,111 @@ const UploadForm: React.FC<UploadFormProps> = ({ brandId, onClose }) => {
 
     const formData = new FormData(formRef.current);
 
-    try {
-      const xhr = new XMLHttpRequest();
+    const attemptUpload = async (): Promise<void> => {
+      try {
+        const xhr = new XMLHttpRequest();
 
-      xhr.upload.addEventListener("progress", (event) => {
-        if (event.lengthComputable) {
-          const percentComplete = (event.loaded / event.total) * 100;
-          setProgress(percentComplete);
-          console.log("Upload progress:", percentComplete);
-        }
-      });
-
-      xhr.addEventListener("load", () => {
-        console.log("XHR load event, status:", xhr.status);
-        if (xhr.status >= 200 && xhr.status < 300) {
-          try {
-            const response = JSON.parse(xhr.responseText);
-            console.log("Upload response:", response);
-            setUploading(false);
-            window.location.reload();
-          } catch (err) {
-            console.error("Failed to parse response:", err);
-            setUploading(false);
-            alert("Upload completed but response invalid. Please refresh.");
+        xhr.upload.addEventListener("progress", (event) => {
+          if (event.lengthComputable) {
+            const percentComplete = (event.loaded / event.total) * 100;
+            setProgress(percentComplete);
+            console.log("Upload progress:", percentComplete);
           }
-        } else {
-          console.error("Upload failed with status:", xhr.status);
-          setUploading(false);
-          alert(`Upload failed: ${xhr.statusText || "Unknown error"}`);
-        }
-      });
+        });
 
-      xhr.addEventListener("error", () => {
-        console.error("XHR error event");
+        xhr.addEventListener("load", () => {
+          console.log("XHR load event, status:", xhr.status, "response:", xhr.responseText);
+          if (xhr.status >= 200 && xhr.status < 300) {
+            try {
+              const response = JSON.parse(xhr.responseText);
+              console.log("Upload response:", response);
+              setUploading(false);
+              retryCountRef.current = 0; // Reset retries
+              window.location.reload();
+            } catch (err) {
+              console.error("Failed to parse response:", err, "responseText:", xhr.responseText);
+              setUploading(false);
+              alert("Upload completed but response invalid. Please refresh.");
+            }
+          } else {
+            console.error("Upload failed with status:", xhr.status, "response:", xhr.responseText);
+            setUploading(false);
+            try {
+              const errorResponse = JSON.parse(xhr.responseText);
+              alert(`Upload failed: ${errorResponse.error}${errorResponse.details ? ` - ${errorResponse.details}` : ''}`);
+            } catch {
+              alert(`Upload failed: ${xhr.status} ${xhr.statusText || "Unknown error"}`);
+            }
+          }
+        });
+
+        xhr.addEventListener("error", () => {
+          console.error("XHR error event, response:", xhr.responseText);
+          if (retryCountRef.current < maxRetries) {
+            retryCountRef.current += 1;
+            console.log(`Retrying upload, attempt ${retryCountRef.current + 1}`);
+            setTimeout(() => attemptUpload(), 2000); // Retry after 2s
+          } else {
+            setUploading(false);
+            alert("Upload failed due to a network or server error. Please check your connection and try again.");
+            retryCountRef.current = 0; // Reset retries
+          }
+        });
+
+        xhr.addEventListener("timeout", () => {
+          console.error("XHR timeout event");
+          if (retryCountRef.current < maxRetries) {
+            retryCountRef.current += 1;
+            console.log(`Retrying upload, attempt ${retryCountRef.current + 1}`);
+            setTimeout(() => attemptUpload(), 2000); // Retry after 2s
+          } else {
+            setUploading(false);
+            alert("Upload timed out. Please try again with a better connection.");
+            retryCountRef.current = 0; // Reset retries
+          }
+        });
+
+        xhr.timeout = 300000; // 5-minute timeout
+        xhr.open("POST", "/api/upload-reel");
+        xhr.setRequestHeader("Accept", "application/json");
+        xhr.send(formData);
+      } catch (error) {
+        console.error("Submit error:", error);
         setUploading(false);
         alert("Upload failed. Please try again.");
-      });
+      }
+    };
 
-      xhr.open("POST", "/api/upload-reel");
-      xhr.send(formData);
-    } catch (error) {
-      console.error("Submit error:", error);
-      setUploading(false);
-      alert("Upload failed. Please try again.");
-    }
+    await attemptUpload();
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    setFileName(file ? file.name : null);
+    if (!file) {
+      setFileName(null);
+      return;
+    }
+
+    // Validate file size (600MB = 600 * 1024 * 1024 bytes)
+    const maxSize = 600 * 1024 * 1024;
+    if (file.size > maxSize) {
+      alert("File size exceeds 600MB. Please select a smaller video.");
+      e.target.value = ""; // Clear the input
+      setFileName(null);
+      return;
+    }
+
+    // Validate file type
+    const allowedTypes = ["video/mp4", "video/webm", "video/mpeg"];
+    if (!allowedTypes.includes(file.type)) {
+      alert("Please upload an MP4, WebM, or MPEG video file.");
+      e.target.value = "";
+      setFileName(null);
+      return;
+    }
+
+    console.log("Selected file:", { name: file.name, size: file.size, type: file.type });
+    setFileName(file.name);
   };
 
   return (
@@ -93,7 +151,7 @@ const UploadForm: React.FC<UploadFormProps> = ({ brandId, onClose }) => {
             htmlFor="reel"
             className="block text-sm font-medium text-gray-300 mb-2"
           >
-            Upload Reel (Max 600MB)
+            Upload Reel (Max 600MB, MP4/WebM/MPEG)
           </label>
           <div
             className="relative flex items-center justify-center p-4 rounded-lg bg-gray-800/50 border border-gray-600 hover:bg-gray-700/50 transition-all duration-300 cursor-pointer group"
@@ -104,7 +162,7 @@ const UploadForm: React.FC<UploadFormProps> = ({ brandId, onClose }) => {
               type="file"
               name="reel"
               id="reel"
-              accept="video/*"
+              accept="video/mp4,video/webm,video/mpeg"
               className="hidden"
               onChange={handleFileChange}
               required
