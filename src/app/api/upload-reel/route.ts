@@ -143,7 +143,17 @@ export async function POST(req: NextRequest) {
 
     // Initialize Google Drive authentication
     logWithTimestamp("Initializing Google Drive authentication");
-    const credentials: ServiceAccountCredentials = JSON.parse(process.env.GOOGLE_DRIVE_CREDENTIALS || "{}");
+    let credentials: ServiceAccountCredentials;
+    try {
+      credentials = JSON.parse(process.env.GOOGLE_DRIVE_CREDENTIALS || "{}");
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : "Unknown error";
+      logWithTimestamp("Failed to parse Google Drive credentials", { error: errorMessage });
+      return NextResponse.json(
+        { error: "Server configuration error", details: "Failed to parse Google Drive credentials" },
+        { status: 500 }
+      );
+    }
     if (!credentials.client_email || !credentials.private_key) {
       logWithTimestamp("Invalid Google Drive credentials");
       return NextResponse.json(
@@ -219,7 +229,10 @@ export async function POST(req: NextRequest) {
     const videoUrl = response.data.webViewLink;
     if (!videoUrl) {
       logWithTimestamp("Invalid videoUrl", { videoUrl });
-      throw new Error("Failed to obtain valid video URL from Google Drive");
+      return NextResponse.json(
+        { error: "Google Drive error", details: "Failed to obtain valid video URL" },
+        { status: 500 }
+      );
     }
 
     // Save to Prisma
@@ -270,7 +283,17 @@ async function uploadToGoogleDrive(
 
   try {
     logWithTimestamp("Initializing Google Drive authentication (fallback)");
-    const credentials: ServiceAccountCredentials = JSON.parse(process.env.GOOGLE_DRIVE_CREDENTIALS || "{}");
+    let credentials: ServiceAccountCredentials;
+    try {
+      credentials = JSON.parse(process.env.GOOGLE_DRIVE_CREDENTIALS || "{}");
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : "Unknown error";
+      logWithTimestamp("Failed to parse Google Drive credentials (fallback)", { error: errorMessage });
+      return NextResponse.json(
+        { error: "Server configuration error", details: "Failed to parse Google Drive credentials" },
+        { status: 500 }
+      );
+    }
     if (!credentials.client_email || !credentials.private_key) {
       logWithTimestamp("Invalid Google Drive credentials (fallback)");
       return NextResponse.json(
@@ -309,7 +332,10 @@ async function uploadToGoogleDrive(
     const videoUrl = response.data.webViewLink;
     if (!videoUrl) {
       logWithTimestamp("Invalid videoUrl (fallback)", { videoUrl });
-      throw new Error("Failed to obtain valid video URL from Google Drive");
+      return NextResponse.json(
+        { error: "Google Drive error", details: "Failed to obtain valid video URL" },
+        { status: 500 }
+      );
     }
 
     logWithTimestamp("Saving reel to Prisma (fallback)");

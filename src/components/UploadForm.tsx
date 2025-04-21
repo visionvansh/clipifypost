@@ -89,19 +89,24 @@ const UploadForm: React.FC<UploadFormProps> = ({ brandId, onClose }) => {
           } else {
             setUploading(false);
             let errorMsg = "Server error";
-            let details = "";
-            try {
-              const errorResponse = text ? JSON.parse(text) : {};
-              errorMsg = errorResponse.error || `HTTP ${response.status || "Unknown"}`;
-              details = errorResponse.details || response.statusText || "No additional details";
-            } catch (err: unknown) {
-              const errorMessage = err instanceof Error ? err.message : "Unknown error";
-              logWithTimestamp("Failed to parse error response", {
-                error: errorMessage,
-                text,
-              });
-              errorMsg = response.status ? `HTTP ${response.status}` : "Unknown error";
-              details = text || response.statusText || "Invalid response";
+            let details = "No additional details";
+            if (!text) {
+              errorMsg = `HTTP ${response.status || "Unknown"}`;
+              details = response.statusText || "Empty response";
+            } else {
+              try {
+                const errorResponse = JSON.parse(text);
+                errorMsg = errorResponse.error || `HTTP ${response.status || "Unknown"}`;
+                details = errorResponse.details || "Invalid response format";
+              } catch (err: unknown) {
+                const errorMessage = err instanceof Error ? err.message : "Unknown error";
+                logWithTimestamp("Failed to parse error response", {
+                  error: errorMessage,
+                  text,
+                });
+                errorMsg = response.status ? `HTTP ${response.status}` : "Unknown error";
+                details = text || "Malformed response";
+              }
             }
             setError(`Upload failed: ${errorMsg} - ${details}`);
             retryCountRef.current = 0;
