@@ -17,22 +17,30 @@ const UploadForm: React.FC<UploadFormProps> = ({ brandId, onClose }) => {
   const retryCountRef = useRef(0);
   const maxRetries = 3;
 
+  const logWithTimestamp = (message: string, data: any = {}) => {
+    console.log(`[${new Date().toISOString()}] ${message}`, {
+      ...data,
+      environment: process.env.NODE_ENV || "unknown",
+    });
+  };
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!formRef.current) {
-      console.error("Form ref missing");
+      logWithTimestamp("Form ref missing");
       setError("Form error. Please try again.");
       return;
     }
 
     setUploading(true);
     setError(null);
-    console.log("Submitting form for brandId:", brandId);
+    logWithTimestamp("Submitting form", { brandId });
 
     const formData = new FormData(formRef.current);
 
     const attemptUpload = async (): Promise<void> => {
       try {
+        logWithTimestamp("Sending fetch request to /api/upload-reel");
         const response = await fetch("/api/upload-reel", {
           method: "POST",
           body: formData,
@@ -42,73 +50,80 @@ const UploadForm: React.FC<UploadFormProps> = ({ brandId, onClose }) => {
           signal: AbortSignal.timeout(600000), // 10-minute timeout
         });
 
-        console.log("Fetch response", {
+        logWithTimestamp("Fetch response received", {
           status: response.status,
           statusText: response.statusText,
           ok: response.ok,
         });
 
         const text = await response.text();
-        console.log("Raw response text:", text || "(empty)");
+        logWithTimestamp("Raw response text", { text: text || "(empty)" });
 
         if (response.ok) {
           try {
             const json = text ? JSON.parse(text) : { message: "No response body" };
-            console.log("Upload response:", json);
+            logWithTimestamp("Upload response", json);
             setUploading(false);
             retryCountRef.current = 0;
             alert("Video uploaded successfully!");
             window.location.reload();
-          } catch (err) {
-            console.error("Failed to parse success response:", err, "text:", text);
+          } catch (err: unknown) {
+            const errorMessage = err instanceof Error ? err.message : "Unknown error";
+            logWithTimestamp("Failed to parse success response", {
+              error: errorMessage,
+              text,
+            });
             setError("Upload completed but response invalid. Please refresh.");
             setUploading(false);
           }
         } else {
-          console.error("Upload failed", {
+          logWithTimestamp("Upload failed", {
             status: response.status,
             statusText: response.statusText,
             text,
           });
           if (retryCountRef.current < maxRetries) {
             retryCountRef.current += 1;
-            console.log(`Retrying upload, attempt ${retryCountRef.current + 1}`);
+            logWithTimestamp(`Retrying upload, attempt ${retryCountRef.current + 1}`);
             setTimeout(() => attemptUpload(), 2000);
           } else {
             setUploading(false);
             let errorMsg = "Server error";
             let details = "";
-            if (!text) {
-              errorMsg = `HTTP ${response.status || "Unknown"}`;
-              details = response.statusText ? ` - ${response.statusText}` : " - No response body";
-            } else {
-              try {
-                const errorResponse = JSON.parse(text);
-                errorMsg = errorResponse.error || `HTTP ${response.status || "Unknown"}`;
-                details = errorResponse.details ? ` - ${errorResponse.details}` : "";
-              } catch (err) {
-                console.error("Failed to parse error response:", err, "text:", text);
-                errorMsg = response.status ? `HTTP ${response.status}` : "Unknown error";
-                details = response.statusText ? ` - ${response.statusText}` : " - Invalid response";
-              }
+            try {
+              const errorResponse = text ? JSON.parse(text) : {};
+              errorMsg = errorResponse.error || `HTTP ${response.status || "Unknown"}`;
+              details = errorResponse.details || response.statusText || "No additional details";
+            } catch (err: unknown) {
+              const errorMessage = err instanceof Error ? err.message : "Unknown error";
+              logWithTimestamp("Failed to parse error response", {
+                error: errorMessage,
+                text,
+              });
+              errorMsg = response.status ? `HTTP ${response.status}` : "Unknown error";
+              details = text || response.statusText || "Invalid response";
             }
-            setError(`Upload failed: ${errorMsg}${details}`);
+            setError(`Upload failed: ${errorMsg} - ${details}`);
             retryCountRef.current = 0;
           }
         }
-      } catch (error: any) {
-        console.error("Fetch error:", error.message, {
-          name: error.name,
-          stack: error.stack,
+      } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : "Unknown error";
+        const errorName = error instanceof Error ? error.name : "Unknown";
+        const errorStack = error instanceof Error ? error.stack : undefined;
+        logWithTimestamp("Fetch error", {
+          message: errorMessage,
+          name: errorName,
+          stack: errorStack,
         });
         if (retryCountRef.current < maxRetries) {
           retryCountRef.current += 1;
-          console.log(`Retrying upload, attempt ${retryCountRef.current + 1}`);
+          logWithTimestamp(`Retrying upload, attempt ${retryCountRef.current + 1}`);
           setTimeout(() => attemptUpload(), 2000);
         } else {
           setUploading(false);
-          const errorMsg = error.name === "TimeoutError" ? "Upload timed out" : "Network or client error";
-          setError(`${errorMsg}. Please check your connection and try again.`);
+          const errorMsg = errorName === "TimeoutError" ? "Upload timed out" : "Network or client error";
+          setError(`${errorMsg}: ${errorMessage || "Please check your connection and try again."}`);
           retryCountRef.current = 0;
         }
       }
@@ -143,7 +158,11 @@ const UploadForm: React.FC<UploadFormProps> = ({ brandId, onClose }) => {
       return;
     }
 
-    console.log("Selected file:", { name: file.name, size: file.size, type: file.type });
+    logWithTimestamp("Selected file", {
+      name: file.name,
+      size: file.size,
+      type: file.type,
+    });
     setFileName(file.name);
     setError(null);
   };
