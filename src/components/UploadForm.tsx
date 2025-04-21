@@ -10,126 +10,128 @@ interface UploadFormProps {
 
 const UploadForm: React.FC<UploadFormProps> = ({ brandId, onClose }) => {
   const [uploading, setUploading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [progress, setProgress] = useState(0);
   const [fileName, setFileName] = useState<string | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const retryCountRef = useRef(0);
   const maxRetries = 3;
 
-  const logWithTimestamp = (message: string, data: any = {}) => {
-    console.log(`[${new Date().toISOString()}] ${message}`, {
-      ...data,
-      environment: process.env.NODE_ENV || "unknown",
-    });
-  };
-
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!formRef.current) {
-      logWithTimestamp("Form ref missing");
-      setError("Form error. Please try again.");
+      console.error("Form ref missing");
       return;
     }
 
     setUploading(true);
-    setError(null);
-    logWithTimestamp("Submitting form", { brandId });
+    setProgress(0);
+    console.log("Submitting form for brandId:", brandId);
 
     const formData = new FormData(formRef.current);
 
     const attemptUpload = async (): Promise<void> => {
       try {
-        logWithTimestamp("Sending fetch request to /api/upload-reel");
+        // Create a stream to track upload progress
+        const stream = new ReadableStream({
+          start(controller) {
+            const reader = (formData as any).get("reel").stream().getReader();
+            let loaded = 0;
+            const total = (formData as any).get("reel").size;
+
+            const pump = async () => {
+              const { done, value } = await reader.read();
+              if (done) {
+                controller.close();
+                return;
+              }
+              loaded += value.length;
+              const percentComplete = (loaded / total) * 100;
+              setProgress(percentComplete);
+              console.log("Upload progress:", percentComplete);
+              controller.enqueue(value);
+              pump();
+            };
+            pump();
+          },
+        });
+
         const response = await fetch("/api/upload-reel", {
           method: "POST",
           body: formData,
           headers: {
             Accept: "application/json",
           },
-          signal: AbortSignal.timeout(600000), // 10-minute timeout
+          signal: AbortSignal.timeout(600000), // 10-minute timeout for larger files
         });
 
-        logWithTimestamp("Fetch response received", {
+        console.log("Fetch response", {
           status: response.status,
           statusText: response.statusText,
           ok: response.ok,
         });
 
-        const text = await response.text();
-        logWithTimestamp("Raw response text", { text: text || "(empty)" });
+        const text = await response.text(); // Get raw text first
+        console.log("Raw response text:", text || "(empty)");
 
         if (response.ok) {
           try {
             const json = text ? JSON.parse(text) : { message: "No response body" };
-            logWithTimestamp("Upload response", json);
+            console.log("Upload response:", json);
             setUploading(false);
-            retryCountRef.current = 0;
-            alert("Video uploaded successfully!");
+            retryCountRef.current = 0; // Reset retries
             window.location.reload();
-          } catch (err: unknown) {
-            const errorMessage = err instanceof Error ? err.message : "Unknown error";
-            logWithTimestamp("Failed to parse success response", {
-              error: errorMessage,
-              text,
-            });
-            setError("Upload completed but response invalid. Please refresh.");
+          } catch (err) {
+            console.error("Failed to parse success response:", err, "text:", text);
             setUploading(false);
+            alert("Upload completed but response invalid. Please refresh.");
           }
         } else {
-          logWithTimestamp("Upload failed", {
+          console.error("Upload failed", {
             status: response.status,
             statusText: response.statusText,
             text,
           });
           if (retryCountRef.current < maxRetries) {
             retryCountRef.current += 1;
-            logWithTimestamp(`Retrying upload, attempt ${retryCountRef.current + 1}`);
-            setTimeout(() => attemptUpload(), 2000);
+            console.log(`Retrying upload, attempt ${retryCountRef.current + 1}`);
+            setTimeout(() => attemptUpload(), 2000); // Retry after 2s
           } else {
             setUploading(false);
             let errorMsg = "Server error";
-            let details = "No additional details";
+            let details = "";
             if (!text) {
               errorMsg = `HTTP ${response.status || "Unknown"}`;
-              details = response.statusText || "Empty response";
+              details = response.statusText ? ` - ${response.statusText}` : " - No response body";
             } else {
               try {
                 const errorResponse = JSON.parse(text);
                 errorMsg = errorResponse.error || `HTTP ${response.status || "Unknown"}`;
-                details = errorResponse.details || "Invalid response format";
-              } catch (err: unknown) {
-                const errorMessage = err instanceof Error ? err.message : "Unknown error";
-                logWithTimestamp("Failed to parse error response", {
-                  error: errorMessage,
-                  text,
-                });
+                details = errorResponse.details ? ` - ${errorResponse.details}` : "";
+              } catch (err) {
+                console.error("Failed to parse error response:", err, "text:", text);
                 errorMsg = response.status ? `HTTP ${response.status}` : "Unknown error";
-                details = text || "Malformed response";
+                details = response.statusText ? ` - ${response.statusText}` : " - Invalid response";
               }
             }
-            setError(`Upload failed: ${errorMsg} - ${details}`);
-            retryCountRef.current = 0;
+            alert(`Upload failed: ${errorMsg}${details}`);
+            retryCountRef.current = 0; // Reset retries
           }
         }
-      } catch (error: unknown) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error";
-        const errorName = error instanceof Error ? error.name : "Unknown";
-        const errorStack = error instanceof Error ? error.stack : undefined;
-        logWithTimestamp("Fetch error", {
-          message: errorMessage,
-          name: errorName,
-          stack: errorStack,
+      } catch (error: any) {
+        console.error("Fetch error:", error.message, {
+          name: error.name,
+          stack: error.stack,
         });
         if (retryCountRef.current < maxRetries) {
           retryCountRef.current += 1;
-          logWithTimestamp(`Retrying upload, attempt ${retryCountRef.current + 1}`);
-          setTimeout(() => attemptUpload(), 2000);
+          console.log(`Retrying upload, attempt ${retryCountRef.current + 1}`);
+          setTimeout(() => attemptUpload(), 2000); // Retry after 2s
         } else {
           setUploading(false);
-          const errorMsg = errorName === "TimeoutError" ? "Upload timed out" : "Network or client error";
-          setError(`${errorMsg}: ${errorMessage || "Please check your connection and try again."}`);
-          retryCountRef.current = 0;
+          const errorMsg = error.name === "TimeoutError" ? "Upload timed out" : "Network or client error";
+          alert(`${errorMsg}. Please check your connection and try again.`);
+          retryCountRef.current = 0; // Reset retries
         }
       }
     };
@@ -141,15 +143,14 @@ const UploadForm: React.FC<UploadFormProps> = ({ brandId, onClose }) => {
     const file = e.target.files?.[0];
     if (!file) {
       setFileName(null);
-      setError(null);
       return;
     }
 
     // Validate file size (600MB = 600 * 1024 * 1024 bytes)
     const maxSize = 600 * 1024 * 1024;
     if (file.size > maxSize) {
-      setError("File size exceeds 600MB. Please select a smaller video.");
-      e.target.value = "";
+      alert("File size exceeds 600MB. Please select a smaller video.");
+      e.target.value = ""; // Clear the input
       setFileName(null);
       return;
     }
@@ -157,19 +158,14 @@ const UploadForm: React.FC<UploadFormProps> = ({ brandId, onClose }) => {
     // Validate file type
     const allowedTypes = ["video/mp4", "video/webm", "video/mpeg"];
     if (!allowedTypes.includes(file.type)) {
-      setError("Please upload an MP4, WebM, or MPEG video file.");
+      alert("Please upload an MP4, WebM, or MPEG video file.");
       e.target.value = "";
       setFileName(null);
       return;
     }
 
-    logWithTimestamp("Selected file", {
-      name: file.name,
-      size: file.size,
-      type: file.type,
-    });
+    console.log("Selected file:", { name: file.name, size: file.size, type: file.type });
     setFileName(file.name);
-    setError(null);
   };
 
   return (
@@ -209,7 +205,15 @@ const UploadForm: React.FC<UploadFormProps> = ({ brandId, onClose }) => {
             </span>
           </div>
         </div>
-        {error && <p className="text-red-400 text-sm">{error}</p>}
+        <div>
+          <progress
+            value={progress}
+            max="100"
+            className={`w-full h-3 rounded-full bg-gray-700/50 [&::-webkit-progress-bar]:bg-gray-700/50 [&::-webkit-progress-value]:bg-gradient-to-r [&::-webkit-progress-value]:from-blue-500 [&::-webkit-progress-value]:to-purple-600 [&::-webkit-progress-value]:rounded-full transition-all duration-300 ${
+              uploading ? "block" : "hidden"
+            }`}
+          ></progress>
+        </div>
         <div className="flex gap-4">
           <button
             type="submit"
