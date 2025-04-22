@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import prisma from "@/lib/prisma";
+import twilio from "twilio";
 
 export async function POST(req: NextRequest) {
   const logWithTimestamp = (message: string, data: any = {}) => {
@@ -27,6 +28,15 @@ export async function POST(req: NextRequest) {
       );
     }
     logWithTimestamp("User authenticated", { userId });
+
+    // Get Clerk user details from Student model
+    logWithTimestamp("Fetching student username");
+    const student = await prisma.student.findUnique({
+      where: { id: userId },
+      select: { username: true },
+    });
+    const username = student?.username || "Unknown";
+    logWithTimestamp("Student username fetched", { username });
 
     // Get request body
     logWithTimestamp("Parsing request body");
@@ -57,7 +67,10 @@ export async function POST(req: NextRequest) {
     if (folderRegex.test(driveLink)) {
       logWithTimestamp("Folder link detected", { driveLink });
       return NextResponse.json(
-        { error: "Invalid Drive link", details: "Folder links are not allowed. Please provide a direct video file link (e.g., https://drive.google.com/file/d/...)." },
+        {
+          error: "Invalid Drive link",
+          details: "Folder links are not allowed. Please provide a direct video file link (e.g., https://drive.google.com/file/d/...).",
+        },
         { status: 400 }
       );
     }
@@ -67,7 +80,10 @@ export async function POST(req: NextRequest) {
     if (!driveLinkRegex.test(driveLink)) {
       logWithTimestamp("Invalid Drive link format", { driveLink, regexTest: driveLinkRegex.test(driveLink) });
       return NextResponse.json(
-        { error: "Invalid Drive link", details: "Please provide a valid Google Drive video file link (e.g., https://drive.google.com/file/d/...)." },
+        {
+          error: "Invalid Drive link",
+          details: "Please provide a valid Google Drive video file link (e.g., https://drive.google.com/file/d/...).",
+        },
         { status: 400 }
       );
     }
@@ -102,6 +118,45 @@ export async function POST(req: NextRequest) {
       },
     });
     logWithTimestamp("Reel saved", { reelId: reel.id });
+
+    // Send WhatsApp notification to both numbers
+    logWithTimestamp("Sending WhatsApp notifications");
+    const twilioClient = twilio(
+      process.env.TWILIO_ACCOUNT_SID,
+      process.env.TWILIO_AUTH_TOKEN
+    );
+    const adminNumber = process.env.ADMIN_WHATSAPP_NUMBER;
+    const secondaryNumber = process.env.SECONDARY_WHATSAPP_NUMBER;
+    const numbers = [adminNumber, secondaryNumber].filter(Boolean) as string[];
+
+    if (!numbers.length) {
+      logWithTimestamp("Skipping WhatsApp notifications: No valid numbers set", {
+        adminNumber,
+        secondaryNumber,
+      });
+    } else if (!process.env.TWILIO_ACCOUNT_SID || !process.env.TWILIO_AUTH_TOKEN) {
+      logWithTimestamp("Skipping WhatsApp notifications: Twilio credentials missing");
+    } else {
+      const timestamp = new Date().toLocaleString("en-IN", {
+        timeZone: "Asia/Kolkata",
+      });
+
+      for (const number of numbers) {
+        try {
+          await twilioClient.messages.create({
+            body: `User ${username} submitted a Drive link at ${timestamp}`,
+            from: "whatsapp:+14155238886",
+            to: `whatsapp:${number}`,
+          });
+          logWithTimestamp("WhatsApp notification sent", { username, timestamp, to: number });
+        } catch (twilioError: any) {
+          logWithTimestamp("Failed to send WhatsApp notification", {
+            error: twilioError.message,
+            to: number,
+          });
+        }
+      }
+    }
 
     return NextResponse.json({ message: "Drive link submitted", reel }, { status: 200 });
   } catch (err: unknown) {
