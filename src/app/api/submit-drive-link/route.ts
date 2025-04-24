@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import prisma from "@/lib/prisma";
-import twilio from "twilio";
+import axios from "axios";
 
 export async function POST(req: NextRequest) {
   const logWithTimestamp = (message: string, data: any = {}) => {
@@ -62,6 +62,15 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Fetch brand name
+    logWithTimestamp("Fetching brand name", { brandId: parsedBrandId });
+    const brand = await prisma.brand.findUnique({
+      where: { id: parsedBrandId },
+      select: { name: true },
+    });
+    const brandName = brand?.name || "Unknown Brand";
+    logWithTimestamp("Brand name fetched", { brandName });
+
     // Check for folder links
     const folderRegex = /drive\.google\.com\/drive\/folders\//;
     if (folderRegex.test(driveLink)) {
@@ -119,42 +128,33 @@ export async function POST(req: NextRequest) {
     });
     logWithTimestamp("Reel saved", { reelId: reel.id });
 
-    // Send WhatsApp notification to both numbers
-    logWithTimestamp("Sending WhatsApp notifications");
-    const twilioClient = twilio(
-      process.env.TWILIO_ACCOUNT_SID,
-      process.env.TWILIO_AUTH_TOKEN
-    );
-    const adminNumber = process.env.ADMIN_WHATSAPP_NUMBER;
-    const secondaryNumber = process.env.SECONDARY_WHATSAPP_NUMBER;
-    const numbers = [adminNumber, secondaryNumber].filter(Boolean) as string[];
+    // Send Ntfy push notification
+    logWithTimestamp("Sending Ntfy notification");
+    const timestamp = new Date().toLocaleString("en-IN", {
+      timeZone: "Asia/Kolkata",
+    });
+    const message = `User ${username} submitted a Drive link for ${brandName} at ${timestamp}`;
+    const ntfyTopic = process.env.NTFY_TOPIC;
 
-    if (!numbers.length) {
-      logWithTimestamp("Skipping WhatsApp notifications: No valid numbers set", {
-        adminNumber,
-        secondaryNumber,
-      });
-    } else if (!process.env.TWILIO_ACCOUNT_SID || !process.env.TWILIO_AUTH_TOKEN) {
-      logWithTimestamp("Skipping WhatsApp notifications: Twilio credentials missing");
+    if (!ntfyTopic) {
+      logWithTimestamp("Skipping Ntfy notification: NTFY_TOPIC not set");
     } else {
-      const timestamp = new Date().toLocaleString("en-IN", {
-        timeZone: "Asia/Kolkata",
-      });
-
-      for (const number of numbers) {
-        try {
-          await twilioClient.messages.create({
-            body: `User ${username} submitted a Drive link at ${timestamp}`,
-            from: "whatsapp:+14155238886",
-            to: `whatsapp:${number}`,
-          });
-          logWithTimestamp("WhatsApp notification sent", { username, timestamp, to: number });
-        } catch (twilioError: any) {
-          logWithTimestamp("Failed to send WhatsApp notification", {
-            error: twilioError.message,
-            to: number,
-          });
-        }
+      try {
+        const response = await axios.post(`https://ntfy.sh/${ntfyTopic}`, message, {
+          headers: { "Content-Type": "text/plain" },
+        });
+        logWithTimestamp("Ntfy notification sent", {
+          username,
+          brandName,
+          timestamp,
+          topic: ntfyTopic,
+          status: response.status,
+        });
+      } catch (error: any) {
+        logWithTimestamp("Failed to send Ntfy notification", {
+          error: error.message,
+          status: error.response?.status,
+        });
       }
     }
 

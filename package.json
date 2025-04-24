@@ -29,6 +29,7 @@
     "@types/react-big-calendar": "^1.16.0",
     "aos": "^2.3.4",
     "auth": "^1.2.3",
+    "axios": "^1.8.4",
     "busboy": "^1.6.0",
     "chart.js": "^4.4.8",
     "cloudinary": "^2.6.0",

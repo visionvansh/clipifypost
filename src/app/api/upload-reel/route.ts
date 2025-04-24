@@ -4,7 +4,7 @@ import prisma from "@/lib/prisma";
 import { google } from "googleapis";
 import { Readable } from "stream";
 import { v4 as uuidv4 } from "uuid";
-import twilio from "twilio";
+import axios from "axios";
 
 export async function POST(req: NextRequest) {
   const logWithTimestamp = (message: string, data: any = {}) => {
@@ -64,6 +64,15 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
+
+    // Fetch brand name
+    logWithTimestamp("Fetching brand name", { brandId: parsedBrandId });
+    const brand = await prisma.brand.findUnique({
+      where: { id: parsedBrandId },
+      select: { name: true },
+    });
+    const brandName = brand?.name || "Unknown Brand";
+    logWithTimestamp("Brand name fetched", { brandName });
 
     // Validate file
     const maxSize = 600 * 1024 * 1024; // 600MB
@@ -142,42 +151,33 @@ export async function POST(req: NextRequest) {
     });
     logWithTimestamp("Reel saved", { reelId: reel.id });
 
-    // Send WhatsApp notification to both numbers
-    logWithTimestamp("Sending WhatsApp notifications");
-    const twilioClient = twilio(
-      process.env.TWILIO_ACCOUNT_SID,
-      process.env.TWILIO_AUTH_TOKEN
-    );
-    const adminNumber = process.env.ADMIN_WHATSAPP_NUMBER;
-    const secondaryNumber = process.env.SECONDARY_WHATSAPP_NUMBER;
-    const numbers = [adminNumber, secondaryNumber].filter(Boolean) as string[];
+    // Send Ntfy push notification
+    logWithTimestamp("Sending Ntfy notification");
+    const timestamp = new Date().toLocaleString("en-IN", {
+      timeZone: "Asia/Kolkata",
+    });
+    const message = `User ${username} uploaded a video for ${brandName} at ${timestamp}`;
+    const ntfyTopic = process.env.NTFY_TOPIC;
 
-    if (!numbers.length) {
-      logWithTimestamp("Skipping WhatsApp notifications: No valid numbers set", {
-        adminNumber,
-        secondaryNumber,
-      });
-    } else if (!process.env.TWILIO_ACCOUNT_SID || !process.env.TWILIO_AUTH_TOKEN) {
-      logWithTimestamp("Skipping WhatsApp notifications: Twilio credentials missing");
+    if (!ntfyTopic) {
+      logWithTimestamp("Skipping Ntfy notification: NTFY_TOPIC not set");
     } else {
-      const timestamp = new Date().toLocaleString("en-IN", {
-        timeZone: "Asia/Kolkata",
-      });
-
-      for (const number of numbers) {
-        try {
-          await twilioClient.messages.create({
-            body: `User ${username} uploaded a video at ${timestamp}`,
-            from: "whatsapp:+14155238886",
-            to: `whatsapp:${number}`,
-          });
-          logWithTimestamp("WhatsApp notification sent", { username, timestamp, to: number });
-        } catch (twilioError: any) {
-          logWithTimestamp("Failed to send WhatsApp notification", {
-            error: twilioError.message,
-            to: number,
-          });
-        }
+      try {
+        const response = await axios.post(`https://ntfy.sh/${ntfyTopic}`, message, {
+          headers: { "Content-Type": "text/plain" },
+        });
+        logWithTimestamp("Ntfy notification sent", {
+          username,
+          brandName,
+          timestamp,
+          topic: ntfyTopic,
+          status: response.status,
+        });
+      } catch (error: any) {
+        logWithTimestamp("Failed to send Ntfy notification", {
+          error: error.message,
+          status: error.response?.status,
+        });
       }
     }
 
