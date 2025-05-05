@@ -2,6 +2,7 @@
 
 import { useState, useRef } from "react";
 import { FiUpload, FiLink } from "react-icons/fi";
+import { useAuth } from "@clerk/nextjs";
 
 interface UploadFormProps {
   brandId: number;
@@ -19,6 +20,7 @@ const UploadForm: React.FC<UploadFormProps> = ({ brandId, onClose }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const retryCountRef = useRef(0);
   const maxRetries = 3;
+  const { getToken } = useAuth();
 
   const logWithTimestamp = (message: string, data: any = {}) => {
     console.log(`[${new Date().toISOString()}] ${message}`, {
@@ -181,11 +183,17 @@ const UploadForm: React.FC<UploadFormProps> = ({ brandId, onClose }) => {
     logWithTimestamp("Submitting Drive link", { brandId, driveLink });
 
     try {
+      const token = await getToken();
+      if (!token) {
+        throw new Error("Authentication token not found");
+      }
+
       const response = await fetch("/api/submit-drive-link", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Accept: "application/json",
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ brandId, driveLink }),
       });

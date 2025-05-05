@@ -7,11 +7,13 @@ import { ITEM_PER_PAGE } from "@/lib/settings";
 import { auth } from "@clerk/nextjs/server";
 import { Prisma } from "@prisma/client";
 import { Suspense } from "react";
-import ViewsUpdateForm from "@/components/ViewsUpdateForm";
+import ClientSideFilter from "@/components/ClientSideFilter";
 
 type UserReelWithBrand = Prisma.UserReelGetPayload<{
   include: { brand: { select: { name: true } } };
 }>;
+
+type FormattedUserReel = UserReelWithBrand & { formattedCreatedAt: string };
 
 type Brand = {
   id: number;
@@ -37,13 +39,21 @@ const AddSocialProfilePage = async ({
     );
   }
 
-  const { page, ...queryParams } = searchParams;
+  const { page, brandId, status, ...queryParams } = searchParams;
   const p = page ? parseInt(page) : 1;
 
   const query: Prisma.UserReelWhereInput = { studentId: userId };
 
   if (queryParams.search) {
     query.videoUrl = { contains: queryParams.search, mode: "insensitive" };
+  }
+
+  if (brandId) {
+    query.brandId = parseInt(brandId);
+  }
+
+  if (status && status !== "ALL") {
+    query.status = status as "PENDING" | "APPROVED" | "DISAPPROVED";
   }
 
   const [reels, count, brands] = await prisma.$transaction([
@@ -54,128 +64,34 @@ const AddSocialProfilePage = async ({
       skip: ITEM_PER_PAGE * (p - 1),
     }),
     prisma.userReel.count({ where: query }),
-    prisma.brand.findMany({ select: { id: true, name: true, description: true, rate: true } }),
+    prisma.brand.findMany({
+      select: { id: true, name: true, description: true, rate: true },
+    }),
   ]);
 
+  // Format dates on the server to avoid client-side mismatches
+  const formattedReels: FormattedUserReel[] = reels.map((reel) => ({
+    ...reel,
+    formattedCreatedAt: reel.createdAt
+      ? new Date(reel.createdAt).toLocaleDateString("en-US", {
+          year: "numeric",
+          month: "short",
+          day: "numeric",
+        })
+      : "N/A",
+  }));
+
   return (
-    <div className="bg-black w-full h-screen overflow-hidden">
-      <div className="p-6 h-full overflow-y-auto text-white">
-        <div className="max-w-7xl w-full mx-auto space-y-8">
-          <div className="flex flex-col md:flex-row justify-between items-center gap-6">
-            <h1 className="text-3xl md:text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-600 tracking-tight transform rotate-3d">
-              Upload Your Reel 🎥 <span className="text-smfont-bold bg-clip-text text-transparent bg-gradient-to-r from-red-400 to-purple-600 tracking-tight transform rotate-3d ml-2">(For Editors)</span>
-            </h1>
-            <div className="w-full md:w-auto">
-              <TableSearch />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            <Suspense fallback={<div>Loading brands...</div>}>
-              {brands.map((brand: Brand) => (
-                <BrandCard
-                  key={brand.id}
-                  brand={{
-                    id: brand.id,
-                    name: brand.name,
-                    description: brand.description
-                      ? brand.description.split(/\./).filter((s) => s.trim())
-                      : [],
-                    rate: brand.rate,
-                  }}
-                />
-              ))}
-            </Suspense>
-          </div>
-
-          <div className="backdrop-blur-md bg-gray-900 p-6 rounded-xl shadow-2xl shadow-black/60 border border-gray-700/50 transform rotate-3d">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left">
-                <thead>
-                  <tr className="text-gray-300">
-                    <th className="p-4 font-medium">Reel</th>
-                    <th className="p-4 font-medium">Published Link</th>
-                    <th className="p-4 font-medium">Brand</th>
-                    <th className="p-4 font-medium">Status</th>
-                    <th className="p-4 font-medium">Views</th>
-                    <th className="p-4 font-medium">Uploaded</th>
-                    <th className="p-4 font-medium">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {reels.map((reel: UserReelWithBrand) => (
-                    <tr
-                      key={reel.id}
-                      className="border-t border-gray-700/50 bg-gray-800/20 hover:bg-gray-700/30 transform hover:scale-[1.01] transition-all duration-300 rounded-lg rotate-3d"
-                    >
-                      <td className="p-4">
-                        {reel.videoUrl ? (
-                          <a
-                            href={reel.videoUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-blue-400 hover:text-blue-300 transition-colors"
-                          >
-                            View Reel
-                          </a>
-                        ) : (
-                          `No Reel (URL: ${reel.videoUrl ?? "undefined"})`
-                        )}
-                      </td>
-                      <td className="p-4">
-                        {reel.publishedUrl ? (
-                          <a
-                            href={reel.publishedUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-blue-400 hover:text-blue-300 transition-colors"
-                          >
-                            View Published
-                          </a>
-                        ) : (
-                          "Not Published"
-                        )}
-                      </td>
-                      <td className="p-4">{reel.brand?.name || "Unknown"}</td>
-                      <td className="p-4">
-                        <span
-                          className={`px-2 py-1 rounded-full text-xs ${
-                            reel.status === "PENDING"
-                              ? "bg-yellow-500/20 text-yellow-300"
-                              : reel.status === "APPROVED"
-                              ? "bg-green-500/20 text-green-300"
-                              : reel.status === "DISAPPROVED"
-                              ? "bg-red-500/20 text-red-300"
-                              : "bg-gray-500/20 text-gray-300"
-                          }`}
-                        >
-                          {reel.status || "Unknown"}
-                        </span>
-                      </td>
-                      <td className="p-4">{reel.views || 0}</td>
-                      <td className="p-4">
-                        {reel.createdAt
-                          ? new Date(reel.createdAt).toLocaleDateString()
-                          : "N/A"}
-                      </td>
-                      <td className="p-4">
-                        {reel.status === "APPROVED" && !reel.viewsLocked && (
-                          <ViewsUpdateForm reelId={reel.id} initialViews={reel.views} />
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          <div className="flex justify-center">
-            <Pagination page={p} count={count} />
-          </div>
-        </div>
-      </div>
-    </div>
+    <Suspense fallback={<div>Loading page...</div>}>
+      <ClientSideFilter
+        key={`${brandId}-${status}-${p}`}
+        searchParams={searchParams}
+        reels={formattedReels}
+        count={count}
+        brands={brands}
+        page={p}
+      />
+    </Suspense>
   );
 };
 

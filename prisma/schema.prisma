@@ -213,6 +213,7 @@ model UserReel {
   viewsLocked     Boolean       @default(false)
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
+  disapprovalMessage String?      // New field for disapproval message
   student         Student       @relation(fields: [studentId], references: [id])
   brand           Brand         @relation(fields: [brandId], references: [id])
   reel            ReelStatusHistory[] 

@@ -9,7 +9,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const { reelId, action, publishedUrl, views } = await req.json();
+    const { reelId, action, publishedUrl, views, disapprovalMessage } = await req.json();
 
     if (!reelId || !action) {
       return NextResponse.json(
@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
 
     const reel = await prisma.userReel.findUnique({
       where: { id: reelId },
-      select: { views: true, publishedUrl: true },
+      select: { views: true, publishedUrl: true, status: true },
     });
 
     if (!reel) {
@@ -41,35 +41,45 @@ export async function POST(req: NextRequest) {
           status: "APPROVED",
           publishedUrl,
           views: views || reel.views,
+          disapprovalMessage: null, // Clear disapproval message on approval
         },
       });
 
-      // Log status change with current views
       await prisma.reelStatusHistory.create({
         data: {
           reelId,
           status: "APPROVED",
-          views: updatedReel.views, // Use updated views
+          views: updatedReel.views,
         },
       });
 
       return NextResponse.json({ message: "Reel approved", reel: updatedReel });
     } else if (action === "REJECT") {
+      if (!disapprovalMessage) {
+        return NextResponse.json(
+          { error: "Disapproval message required" },
+          { status: 400 }
+        );
+      }
+
       const updatedReel = await prisma.userReel.update({
         where: { id: reelId },
-        data: { status: "DISAPPROVED" },
+        data: { 
+          status: "DISAPPROVED",
+          disapprovalMessage,
+          publishedUrl: null, // Clear published URL on disapproval
+        },
       });
 
-      // Log status change with current views
       await prisma.reelStatusHistory.create({
         data: {
           reelId,
           status: "DISAPPROVED",
-          views: reel.views, // Use views before update
+          views: reel.views,
         },
       });
 
-      return NextResponse.json({ message: "Reel rejected", reel: updatedReel });
+      return NextResponse.json({ message: "Reel disapproved", reel: updatedReel });
     } else if (action === "UPDATE_VIEWS") {
       const updatedReel = await prisma.userReel.update({
         where: { id: reelId },
@@ -79,6 +89,15 @@ export async function POST(req: NextRequest) {
       });
 
       return NextResponse.json({ message: "Views updated", reel: updatedReel });
+    } else if (action === "UPDATE_URL") {
+      const updatedReel = await prisma.userReel.update({
+        where: { id: reelId },
+        data: {
+          publishedUrl,
+        },
+      });
+
+      return NextResponse.json({ message: "Published URL updated", reel: updatedReel });
     } else {
       return NextResponse.json({ error: "Invalid action" }, { status: 400 });
     }

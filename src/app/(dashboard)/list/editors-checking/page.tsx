@@ -15,6 +15,7 @@ type UserReelWithBrand = {
   student: { username: string };
   publishedUrl: string | null;
   views: number;
+  disapprovalMessage?: string | null;
 };
 
 type Brand = {
@@ -107,7 +108,7 @@ export default function AdminPage({ searchParams }: AdminPageProps) {
       }
     } catch (error) {
       console.error("Bulk enable error:", error);
-      setMessage("Failed to enable update buttons");
+      setMessage("Failed to disable update buttons");
     }
   };
 
@@ -131,9 +132,9 @@ export default function AdminPage({ searchParams }: AdminPageProps) {
         )}
 
         <div className="flex flex-col md:flex-row justify-between items-center gap-6">
-        <h1 className="text-3xl md:text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-600 tracking-tight transform rotate-3d">
-               EDITORS CHECKING PANNEL
-            </h1>
+          <h1 className="text-3xl md:text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-600 tracking-tight transform rotate-3d">
+            EDITORS CHECKING PANNEL
+          </h1>
           <div className="w-full md:w-auto">
             <TableSearch />
           </div>
@@ -186,6 +187,7 @@ export default function AdminPage({ searchParams }: AdminPageProps) {
                   <th className="p-4 font-medium">Brand</th>
                   <th className="p-4 font-medium">Status</th>
                   <th className="p-4 font-medium">Uploaded</th>
+                  <th className="p-4 font-medium">Published URL</th>
                   <th className="p-4 font-medium">Actions</th>
                 </tr>
               </thead>
@@ -227,7 +229,21 @@ export default function AdminPage({ searchParams }: AdminPageProps) {
                       {new Date(reel.createdAt).toLocaleDateString()}
                     </td>
                     <td className="p-4">
-                      <ReelActionForm reel={reel} />
+                      {reel.publishedUrl ? (
+                        <a
+                          href={reel.publishedUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-400 hover:text-blue-300"
+                        >
+                          View Published
+                        </a>
+                      ) : (
+                        "Not Published"
+                      )}
+                    </td>
+                    <td className="p-4">
+                      <ReelActionForm reel={reel} setMessage={setMessage} />
                     </td>
                   </tr>
                 ))}
