@@ -294,11 +294,29 @@ async function initializeDiscordClient() {
 
 export async function GET(request: NextRequest) {
   try {
+    // Validate environment variables
+    const requiredEnvVars = [
+      'DISCORD_CLIENT_ID',
+      'DISCORD_CLIENT_SECRET',
+      'DISCORD_REDIRECT_URI',
+      'DISCORD_BOT_TOKEN',
+      'DISCORD_GUILD_ID',
+      'DISCORD_TEXT_CHANNEL_ID',
+      'NEXT_PUBLIC_BASE_URL',
+    ];
+    for (const envVar of requiredEnvVars) {
+      if (!process.env[envVar]) {
+        console.error(`Missing environment variable: ${envVar}`);
+        return NextResponse.json({ error: `Missing ${envVar}` }, { status: 500 });
+      }
+    }
+
     const url = new URL(request.url);
     const code = url.searchParams.get('code');
 
     if (!code) {
-      const redirectUrl = `https://discord.com/api/oauth2/authorize?client_id=${process.env.DISCORD_CLIENT_ID}&redirect_uri=${encodeURIComponent(process.env.DISCORD_REDIRECT_URI!)}&response_type=code&scope=identify%20email%20guilds.join`;
+      const redirectUri = process.env.DISCORD_REDIRECT_URI!;
+      const redirectUrl = `https://discord.com/api/oauth2/authorize?client_id=${process.env.DISCORD_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=identify%20email%20guilds.join`;
       console.log('Redirecting to Discord OAuth:', redirectUrl);
       return NextResponse.redirect(redirectUrl);
     }
@@ -314,21 +332,34 @@ export async function GET(request: NextRequest) {
 
     let tokenResponse;
     try {
+      const redirectUri = process.env.DISCORD_REDIRECT_URI!;
+      const tokenRequestBody = new URLSearchParams({
+        client_id: process.env.DISCORD_CLIENT_ID!,
+        client_secret: process.env.DISCORD_CLIENT_SECRET!,
+        grant_type: 'authorization_code',
+        code,
+        redirect_uri: redirectUri,
+      });
+
+      console.log('Token exchange request:', {
+        url: 'https://discord.com/api/oauth2/token',
+        body: tokenRequestBody.toString(),
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      });
+
       tokenResponse = await axios.post(
         'https://discord.com/api/oauth2/token',
-        new URLSearchParams({
-          client_id: process.env.DISCORD_CLIENT_ID!,
-          client_secret: process.env.DISCORD_CLIENT_SECRET!,
-          grant_type: 'authorization_code',
-          code,
-          redirect_uri: process.env.DISCORD_REDIRECT_URI!,
-        }),
+        tokenRequestBody,
         { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
       );
-      console.log('Token exchange successful');
-    } catch (error: unknown) {
-      console.error('Token exchange failed:', error instanceof Error ? error.stack : String(error));
-      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_BASE_URL}/?error=token_exchange_failed`);
+      console.log('Token exchange successful:', tokenResponse.data);
+    } catch (error: any) {
+      console.error('Token exchange failed:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+      });
+      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_BASE_URL}/?error=token_exchange_failed&details=${encodeURIComponent(error.response?.data?.error || 'Unknown error')}`);
     }
 
     const { access_token } = tokenResponse.data;
@@ -339,8 +370,8 @@ export async function GET(request: NextRequest) {
         headers: { Authorization: `Bearer ${access_token}` },
       });
       console.log('Fetched Discord user data:', userResponse.data);
-    } catch (error: unknown) {
-      console.error('User data fetch failed:', error instanceof Error ? error.stack : String(error));
+    } catch (error: any) {
+      console.error('User data fetch failed:', error.message);
       return NextResponse.redirect(`${process.env.NEXT_PUBLIC_BASE_URL}/?error=user_fetch_failed`);
     }
 
