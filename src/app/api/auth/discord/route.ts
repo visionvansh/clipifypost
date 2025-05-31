@@ -17,6 +17,7 @@ async function initializeDiscordClient() {
         GatewayIntentBits.MessageContent,
         GatewayIntentBits.GuildInvites,
         GatewayIntentBits.GuildMembers,
+        
       ],
     });
 
@@ -284,7 +285,7 @@ export async function GET(request: NextRequest) {
     const { userId: authUserId } = await getAuth(request);
     if (!authUserId) {
       console.error('No Clerk user ID');
-      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_BASE_URL}/list/invites?error=clerk_auth_failed`);
+      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_BASE_URL}/?error=clerk_auth_failed`);
     }
     console.log('Authenticated user ID:', authUserId);
 
@@ -304,7 +305,7 @@ export async function GET(request: NextRequest) {
       console.log('Token exchange successful');
     } catch (error: unknown) {
       console.error('Token exchange failed:', error instanceof Error ? error.stack : String(error));
-      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_BASE_URL}/list/invites?error=token_exchange_failed`);
+      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_BASE_URL}/?error=token_exchange_failed`);
     }
 
     const { access_token } = tokenResponse.data;
@@ -317,7 +318,7 @@ export async function GET(request: NextRequest) {
       console.log('Fetched Discord user data:', userResponse.data);
     } catch (error: unknown) {
       console.error('User data fetch failed:', error instanceof Error ? error.stack : String(error));
-      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_BASE_URL}/list/invites?error=user_fetch_failed`);
+      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_BASE_URL}/?error=user_fetch_failed`);
     }
 
     const { id: discordId, username: discordUsername, email: discordEmail } = userResponse.data;
@@ -409,7 +410,7 @@ export async function GET(request: NextRequest) {
       }
     } catch (error: unknown) {
       console.error('Prisma student create/update failed:', error instanceof Error ? error.stack : String(error));
-      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_BASE_URL}/list/invites?error=prisma_student_failed`);
+      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_BASE_URL}/?error=prisma_student_failed`);
     }
 
     if (preservedInvites.length > 0) {
@@ -514,7 +515,7 @@ export async function GET(request: NextRequest) {
       const channelId = process.env.DISCORD_TEXT_CHANNEL_ID;
       if (!guildId || !channelId) {
         console.error('Missing DISCORD_GUILD_ID or DISCORD_TEXT_CHANNEL_ID');
-        return NextResponse.redirect(`${process.env.NEXT_PUBLIC_BASE_URL}/list/invites?error=discord_config_missing`);
+        return NextResponse.redirect(`${process.env.NEXT_PUBLIC_BASE_URL}/?error=discord_config_missing`);
       }
 
       try {
@@ -522,7 +523,7 @@ export async function GET(request: NextRequest) {
         const channel = await guild.channels.fetch(channelId);
         if (!channel || !channel.isTextBased() || !(channel instanceof TextChannel)) {
           console.error('Invalid text channel:', channelId);
-          return NextResponse.redirect(`${process.env.NEXT_PUBLIC_BASE_URL}/list/invites?error=invalid_text_channel`);
+          return NextResponse.redirect(`${process.env.NEXT_PUBLIC_BASE_URL}/?error=invalid_text_channel`);
         }
 
         let existingInviteLink = await prisma.inviteLink.findFirst({
@@ -613,7 +614,7 @@ export async function GET(request: NextRequest) {
         }
       } catch (error: unknown) {
         console.error('Invite creation failed:', error instanceof Error ? error.stack : String(error));
-        return NextResponse.redirect(`${process.env.NEXT_PUBLIC_BASE_URL}/list/invites?error=invite_creation_failed`);
+        return NextResponse.redirect(`${process.env.NEXT_PUBLIC_BASE_URL}/?error=invite_creation_failed`);
       }
     }
 

@@ -136,14 +136,14 @@ const Navbar = () => {
                 </span>
               </div>
               {/* Disconnect Discord button ko comment out kiya gaya hai */}
-              {/* <form action="/api/auth/discord/disconnect" method="POST">
+              <form action="/api/auth/discord/disconnect" method="POST">
                 <button
                   type="submit"
                   className="text-[8px] lg:text-sm bg-gradient-to-r from-red-500 to-red-700 text-white px-2 lg:px-4 py-1 lg:py-2 rounded-full hover:from-red-600 hover:to-red-800 hover:shadow-[0_0_15px_rgba(255,0,0,0.8)] transition-all duration-200 shadow-md"
                 >
                   Disconnect Discord
                 </button>
-              </form> */}
+              </form> 
             </>
           ) : (
             <Link
