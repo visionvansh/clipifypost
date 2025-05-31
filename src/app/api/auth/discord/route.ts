@@ -9,6 +9,11 @@ const inviteCache = new Map<string, number>();
 const processedMembers = new Set<string>();
 
 async function initializeDiscordClient() {
+  if (DiscordClient) {
+    console.log('Discord client already initialized');
+    return;
+  }
+
   try {
     DiscordClient = new Client({
       intents: [
@@ -20,9 +25,18 @@ async function initializeDiscordClient() {
       ],
     });
 
+    DiscordClient.on('error', (error) => {
+      console.error('Discord client error:', error);
+    });
+
+    DiscordClient.on('warn', (info) => {
+      console.warn('Discord client warning:', info);
+    });
+
     if (!process.env.DISCORD_BOT_TOKEN) {
       throw new Error('DISCORD_BOT_TOKEN is not set');
     }
+
     await DiscordClient.login(process.env.DISCORD_BOT_TOKEN);
     console.log('Discord client initialized successfully');
 
@@ -31,6 +45,7 @@ async function initializeDiscordClient() {
       console.error('Missing DISCORD_GUILD_ID');
       throw new Error('DISCORD_GUILD_ID not set');
     }
+
     const guild = await DiscordClient.guilds.fetch(guildId);
     const invites = await guild.invites.fetch();
     invites.forEach((invite) => {
@@ -260,6 +275,15 @@ async function initializeDiscordClient() {
         }
       } catch (error: unknown) {
         console.error('Error in guildMemberAdd:', error instanceof Error ? error.stack : String(error));
+      }
+    });
+
+    // Handle THREAD_CREATE event explicitly
+    DiscordClient.on('threadCreate', async (thread) => {
+      try {
+        console.log(`Thread created: ${thread.id}, name: ${thread.name}`);
+      } catch (error: unknown) {
+        console.error('Error handling threadCreate event:', error instanceof Error ? error.stack : String(error));
       }
     });
   } catch (error: unknown) {
@@ -539,12 +563,17 @@ export async function GET(request: NextRequest) {
             auto_archive_duration: 1440,
             invitable: false,
           };
-          const threadResponse = await rest.post(`/channels/${channel.id}/threads`, { body: threadData }) as any;
-          thread = threadResponse;
-          console.log(`Created private thread ${thread.id} for ${discordUsername}`);
+          try {
+            const threadResponse = await rest.post(`/channels/${channel.id}/threads`, { body: threadData }) as any;
+            thread = threadResponse;
+            console.log(`Created private thread ${thread.id} for ${discordUsername}`);
 
-          await rest.put(`/channels/${thread.id}/thread-members/${discordId}`);
-          console.log(`Added member ${discordId} to thread ${thread.id}`);
+            await rest.put(`/channels/${thread.id}/thread-members/${discordId}`);
+            console.log(`Added member ${discordId} to thread ${thread.id}`);
+          } catch (error: unknown) {
+            console.error('Thread creation failed:', error instanceof Error ? error.stack : String(error));
+            return NextResponse.redirect(`${process.env.NEXT_PUBLIC_BASE_URL}/?error=thread_creation_failed`);
+          }
         } else if (existingInviteLink.threadId) {
           const threadChannel = await guild.channels.fetch(existingInviteLink.threadId);
           if (threadChannel && threadChannel.isThread()) {
@@ -557,11 +586,16 @@ export async function GET(request: NextRequest) {
               auto_archive_duration: 1440,
               invitable: false,
             };
-            const threadResponse = await rest.post(`/channels/${channel.id}/threads`, { body: threadData }) as any;
-            thread = threadResponse;
-            console.log(`Created new private thread ${thread.id} for ${discordUsername}`);
-            await rest.put(`/channels/${thread.id}/thread-members/${discordId}`);
-            console.log(`Added member ${discordId} to new thread ${thread.id}`);
+            try {
+              const threadResponse = await rest.post(`/channels/${channel.id}/threads`, { body: threadData }) as any;
+              thread = threadResponse;
+              console.log(`Created new private thread ${thread.id} for ${discordUsername}`);
+              await rest.put(`/channels/${thread.id}/thread-members/${discordId}`);
+              console.log(`Added member ${discordId} to new thread ${thread.id}`);
+            } catch (error: unknown) {
+              console.error('Thread creation failed:', error instanceof Error ? error.stack : String(error));
+              return NextResponse.redirect(`${process.env.NEXT_PUBLIC_BASE_URL}/?error=thread_creation_failed`);
+            }
           }
         }
 
@@ -584,21 +618,26 @@ export async function GET(request: NextRequest) {
             temporary: false,
             unique: true,
           };
-          const inviteResponse = await rest.post(`/channels/${channel.id}/invites`, { body: inviteData }) as any;
-          inviteUrl = `https://discord.gg/${inviteResponse.code}`;
-          const inviteCode = inviteResponse.code;
-          console.log('Created new invite:', { url: inviteUrl, code: inviteCode });
+          try {
+            const inviteResponse = await rest.post(`/channels/${channel.id}/invites`, { body: inviteData }) as any;
+            inviteUrl = `https://discord.gg/${inviteResponse.code}`;
+            const inviteCode = inviteResponse.code;
+            console.log('Created new invite:', { url: inviteUrl, code: inviteCode });
 
-          await prisma.inviteLink.create({
-            data: {
-              studentId: authUserId,
-              discordId,
-              inviteLink: inviteUrl,
-              inviteCode,
-              threadId: thread?.id,
-            },
-          });
-          console.log('Created invite link:', { studentId: authUserId, inviteLink: inviteUrl, threadId: thread?.id });
+            await prisma.inviteLink.create({
+              data: {
+                studentId: authUserId,
+                discordId,
+                inviteLink: inviteUrl,
+                inviteCode,
+                threadId: thread?.id,
+              },
+            });
+            console.log('Created invite link:', { studentId: authUserId, inviteLink: inviteUrl, threadId: thread?.id });
+          } catch (error: unknown) {
+            console.error('Invite creation failed:', error instanceof Error ? error.stack : String(error));
+            return NextResponse.redirect(`${process.env.NEXT_PUBLIC_BASE_URL}/?error=invite_creation_failed`);
+          }
         } else {
           inviteUrl = existingInviteLink.inviteLink;
           await prisma.inviteLink.update({
@@ -613,17 +652,27 @@ export async function GET(request: NextRequest) {
         }
 
         if (thread) {
-          await rest.post(`/channels/${thread.id}/messages`, {
-            body: {
-              content: `New invite link for ${student.discordUsername || 'User'}: ${inviteUrl}`,
-            },
-          });
-          console.log(`Sent invite link to private thread ${thread.id}`);
+          try {
+            await rest.post(`/channels/${thread.id}/messages`, {
+              body: {
+                content: `New invite link for ${student.discordUsername || 'User'}: ${inviteUrl}`,
+              },
+            });
+            console.log(`Sent invite link to private thread ${thread.id}`);
+          } catch (error: unknown) {
+            console.error('Failed to send message to thread:', error instanceof Error ? error.stack : String(error));
+            return NextResponse.redirect(`${process.env.NEXT_PUBLIC_BASE_URL}/?error=thread_message_failed`);
+          }
         } else {
           console.warn('No thread available, sending invite link to DM');
           if (DiscordClient) {
-            const user = await DiscordClient.users.fetch(discordId);
-            await user.send(`Your invite link: ${inviteUrl}`);
+            try {
+              const user = await DiscordClient.users.fetch(discordId);
+              await user.send(`Your invite link: ${inviteUrl}`);
+              console.log(`Sent invite link to user ${discordId} via DM`);
+            } catch (error: unknown) {
+              console.error('Failed to send DM:', error instanceof Error ? error.stack : String(error));
+            }
           }
         }
       } catch (error: unknown) {
