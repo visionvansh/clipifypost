@@ -1,6 +1,4 @@
-"use client";
-
-import { motion } from "framer-motion";
+import { MotionDiv } from "@/components/MotionWrapper"; // Import from wrapper
 import UploadForm from "@/components/UploadForm";
 import prisma from "@/lib/prisma";
 import { notFound } from "next/navigation";
@@ -12,7 +10,7 @@ const formVariants = {
 };
 
 interface UploadReelPageProps {
-  params: { brandId: string };
+  params: Promise<{ brandId: string }>;
 }
 
 // Server-side data fetching
@@ -25,7 +23,8 @@ async function fetchBrand(brandId: string) {
 }
 
 export default async function UploadReelPage({ params }: UploadReelPageProps) {
-  const brand = await fetchBrand(params.brandId);
+  const resolvedParams = await params;
+  const brand = await fetchBrand(resolvedParams.brandId);
 
   if (!brand) {
     notFound();
@@ -33,7 +32,7 @@ export default async function UploadReelPage({ params }: UploadReelPageProps) {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-lamaSkyLight to-lamaPurpleLight text-gray-800 flex justify-center py-16 px-4 sm:px-6 lg:px-8">
-      <motion.div
+      <MotionDiv
         variants={formVariants}
         initial="hidden"
         animate="visible"
@@ -43,7 +42,7 @@ export default async function UploadReelPage({ params }: UploadReelPageProps) {
           Upload Reel for {brand.name} 🎥
         </h1>
         <UploadForm brandId={brand.id} onClose={() => window.history.back()} />
-      </motion.div>
+      </MotionDiv>
     </div>
   );
 }

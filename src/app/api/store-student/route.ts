@@ -1,76 +1,82 @@
 import { NextResponse } from "next/server";
-import prisma from "@/lib/prisma"; // Adjust path to your Prisma client
+import prisma from "@/lib/prisma";
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    console.log("Raw request body:", body);
-
     const { clerkUserId, username, email } = body;
 
-    console.log("Parsed data:", { clerkUserId, username, email });
-
-    // Validate required fields
+    // Validate inputs
     if (!clerkUserId || !username || !email) {
-      console.error("Missing required fields:", { clerkUserId, username, email });
       return NextResponse.json(
         { error: "Missing required fields", received: { clerkUserId, username, email } },
         { status: 400 }
       );
     }
 
-    // Store in Student table (omit accounts field)
-    console.log("Storing in Student table with ID:", clerkUserId);
-    const student = await prisma.student.create({
-      data: {
-        id: clerkUserId,
-        username,
-        email,
-        name: null, // Optional fields can stay null
-        surname: null,
-        phone: null,
-        address: null,
-        img: null,
-        sex: null,
-        platform: null,
-        createdAt: new Date(),
-        // accounts field omit kiya—Prisma ise default empty array ke roop mein handle karega
-      },
-    });
-    console.log("Student stored:", student);
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return NextResponse.json({ error: "Invalid email format" }, { status: 400 });
+    }
 
-    // Store in Result table
-    console.log("Storing in Result table with ID:", clerkUserId);
-    const result = await prisma.result.create({
-      data: {
-        id: clerkUserId,
-        socialAccountName: "N/A",
-        nameOfPerson: username,
-        revenue: "0",
-        studentId: clerkUserId,
-      },
-    });
-    console.log("Result stored:", result);
+    // Validate username (e.g., 3-20 characters, alphanumeric)
+    if (username.length < 3 || username.length > 20 || !/^[a-zA-Z0-9]+$/.test(username)) {
+      return NextResponse.json(
+        { error: "Username must be 3-20 characters and alphanumeric" },
+        { status: 400 }
+      );
+    }
 
-    // Store in Attendance table
-    console.log("Storing in Attendance table with ID:", clerkUserId);
-    const attendance = await prisma.attendance.create({
-      data: {
-        id: clerkUserId,
-        socialAccountName: "N/A",
-        nameOfPerson: username,
-        views: "0",
-        studentId: clerkUserId,
-      },
-    });
-    console.log("Attendance stored:", attendance);
+    // Use Prisma transaction for atomic operations
+    const [student, result, attendance] = await prisma.$transaction([
+      prisma.student.create({
+        data: {
+          id: clerkUserId,
+          username,
+          email,
+          name: null,
+          surname: null,
+          phone: null,
+          address: null,
+          img: null,
+          sex: null,
+          platform: null,
+          createdAt: new Date(),
+        },
+      }),
+      prisma.result.create({
+        data: {
+          id: clerkUserId,
+          socialAccountName: "N/A",
+          nameOfPerson: username,
+          revenue: "0",
+          studentId: clerkUserId,
+        },
+      }),
+      prisma.attendance.create({
+        data: {
+          id: clerkUserId,
+          socialAccountName: "N/A",
+          nameOfPerson: username,
+          views: "0",
+          studentId: clerkUserId,
+        },
+      }),
+    ]);
 
     return NextResponse.json(
       { success: true, student, result, attendance },
       { status: 200 }
     );
   } catch (error: any) {
-    console.error("Database error details:", error.message, error.stack);
+    // Handle Prisma unique constraint errors
+    if (error.code === "P2002") {
+      return NextResponse.json(
+        { error: "Email or username already exists in database" },
+        { status: 409 }
+      );
+    }
     return NextResponse.json(
       { error: "Failed to store data in database", details: error.message },
       { status: 500 }

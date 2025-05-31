@@ -13,25 +13,37 @@ model Admin {
 }
 
 model Student {
-  id           String       @id
-  username     String       @unique
-  name         String?
-  surname      String?
-  email        String       @unique
-  phone        String?      @unique
-  address      String?
-  img          String?
-  accountsInst String?      @unique
-  sex          UserSex?
-  createdAt    DateTime     @default(now())
-  platform     String?
-  attendence   Attendance[]
-  result       Result[]
-  assignment   Assignment[]
-  class        Class[]
-  accounts     Account[] // Ek user ke multiple accounts
-  userReel  UserReel[]
-  userLinks   UserLink[]
+  id               String       @id
+  username         String       @unique
+  name             String?
+  surname          String?
+  email            String      
+  phone            String?      @unique
+  address          String?
+  img              String?
+  accountsInst     String?      @unique
+  sex              UserSex?
+  createdAt        DateTime     @default(now())
+  platform         String?
+  attendence       Attendance[]
+  result           Result[]
+  assignment       Assignment[]
+  class            Class[]
+  accounts         Account[]
+  userReel         UserReel[]
+  userLinks        UserLink[]
+  stats            UserStatsRecord[]
+  payments         Payment[]
+  inviteLinks      InviteLink[]
+  sentInvites      Invite[]     @relation("Inviter")
+  receivedInvites  Invite[]     @relation("Invited")
+  referralEarnings ReferralEarning[] @relation("StudentEarnings")
+  referredBy       ReferralEarning[] @relation("StudentReferredBy")
+  discordId        String?      @unique
+  discordUsername  String?
+  discordEmail     String?
+  inviteStats     InviteStats?
+   signedUpToWebsite Boolean @default(false)
 }
 
 model Teacher {
@@ -49,7 +61,7 @@ model Teacher {
   platform   String
   attendence Attendance[]
   result     Result[]
-  assignment Assignment[]
+  invitation Assignment[]
   class      Class[]
 }
 
@@ -97,25 +109,28 @@ model Subject {
   name String @unique
 }
 
-model Clip  { //lesson
+model Clip {
   id        Int     @id @default(autoincrement())
   accountId Int
-  companyId Int // Company ka reference
+  companyId Int
   link      String
   views     Int
-  previousApprovedViews Int?    // New field to store previously approved views
+  previousApprovedViews Int?
+  postedAt              DateTime?
   status    String  @default("pending")
   account   Account @relation(fields: [accountId], references: [id])
   company   Company @relation(fields: [companyId], references: [id])
 }
 
-model Account {// exam
+model Account {
   id               Int     @id @default(autoincrement())
   userId           String
   instagramLink    String
-  verificationCode String
+  verificationCode String?
   isVerified       Boolean @default(false)
-  status           String  @default("Awaiting Bio Update") // Ye field hona chahiye
+  status           String  @default("Awaiting Bio Update")
+  driveLink        String?
+  pushedVerificationCode String?
   user             Student @relation(fields: [userId], references: [id])
   clips            Clip[]
 }
@@ -137,8 +152,8 @@ model Result {
   socialAccountName String
   nameOfPerson      String
   revenue           String
-createdAt         DateTime @default(now())
-updatedAt         DateTime @updatedAt
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
   teacherId String?
   teacher   Teacher? @relation(fields: [teacherId], references: [id])
   studentId String?
@@ -174,8 +189,8 @@ model Company {
   name            String @unique
   rate            String
   image           String
-  tutorialVideo   String // Tutorial Drive Link
-  thumbnailUrl    String // Thumbnail ka URL
+  tutorialVideo   String
+  thumbnailUrl    String
   description     String
   contentLink     String
   clips           Clip[]
@@ -213,23 +228,22 @@ model UserReel {
   viewsLocked     Boolean       @default(false)
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
-  disapprovalMessage String?      // New field for disapproval message
+  disapprovalMessage String?
   student         Student       @relation(fields: [studentId], references: [id])
   brand           Brand         @relation(fields: [brandId], references: [id])
-  reel            ReelStatusHistory[] 
+  reel            ReelStatusHistory[]
 }
 
 model Brand {
   id          Int           @id @default(autoincrement())
   name        String        @unique
   description String?
-  rate        Float         // Dollars per 100k views
+  rate        Float
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
   reels       UserReel[]
   userLinks   UserLink[]
 }
-
 
 model UserLink {
   id          Int           @id @default(autoincrement())
@@ -251,8 +265,98 @@ enum UploadStatus {
 model ReelStatusHistory {
   id        Int      @id @default(autoincrement())
   reelId    Int
-  status    String   // PENDING, APPROVED, DISAPPROVED
-  views     Int      // Views at the time of status change
+  status    String
+  views     Int
   createdAt DateTime @default(now())
   reel      UserReel @relation(fields: [reelId], references: [id])
+}
+
+model UserStatsRecord {
+  id                 String    @id @default(uuid())
+  userId             String
+  username           String
+  clerkUserId        String
+  clerkUsername      String
+  month              String
+  uploadersHubViews  Int
+  uploadersHubRevenue Float
+  editorsHubViews    Int
+  editorsHubRevenue  Float
+  totalViews         Int
+  totalRevenue       Float
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  student            Student   @relation(fields: [userId], references: [id])
+  @@unique([userId, month])
+}
+
+model Payment {
+  id        String   @id @default(uuid())
+  studentId String
+  month     String
+  amount    Float
+  createdAt DateTime @default(now())
+  student   Student  @relation(fields: [studentId], references: [id])
+  @@unique([studentId, month])
+}
+
+model InviteLink {
+  id          Int      @id @default(autoincrement())
+  studentId   String   @unique
+  discordId   String?
+  inviteLink  String
+  inviteCode  String
+  threadId    String?  // New column to store private thread ID
+  student     Student  @relation(fields: [studentId], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Invite {
+  id               Int      @id @default(autoincrement())
+  inviterId        String
+  invitedId        String
+  invitedUsername  String?  // Added to store invited user's Discord username
+  status           String   @default("pending")
+  invitedViews     Int      @default(0)
+  createdAt        DateTime @default(now())
+  inviter          Student  @relation("Inviter", fields: [inviterId], references: [id])
+  invited          Student  @relation("Invited", fields: [invitedId], references: [id])
+  @@unique([inviterId, invitedId])
+}
+
+model ReferralEarning {
+  id            Int      @id @default(autoincrement())
+  studentId     String
+  invitedId     String
+  amount        Float    @default(0.5)
+  month         String
+  createdAt     DateTime @default(now())
+  student       Student  @relation("StudentEarnings", fields: [studentId], references: [id])
+  invited       Student  @relation("StudentReferredBy", fields: [invitedId], references: [id])
+  @@unique([studentId, invitedId]) // Add this line
+}
+
+model InviteStats {
+  id         Int      @id @default(autoincrement())
+  studentId  String   @unique
+  inviteCount Int     @default(0)
+  updatedAt  DateTime @updatedAt
+  student    Student  @relation(fields: [studentId], references: [id])
+}
+
+model InviteTracking {
+  id            Int      @id @default(autoincrement())
+  inviterId     String   // Discord ID of the inviter (e.g., visionvansh)
+  invitedId     String   // Discord ID of the invited user
+  invitedUsername String // Discord username of the invited user
+  createdAt     DateTime @default(now())
+}
+
+model Otp {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  otp       String
+  expires   DateTime
+  createdAt DateTime @default(now())
 }

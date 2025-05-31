@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { useAuth } from "@clerk/nextjs";
-import Image from "next/image";
+import { FaEllipsisH } from "react-icons/fa";
 
 const LifetimeViews = () => {
   const { userId } = useAuth();
@@ -11,28 +11,35 @@ const LifetimeViews = () => {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!userId) return;
+    if (!userId) {
+      setViews("0");
+      setLoading(false);
+      return;
+    }
 
     const fetchLifetimeViews = async () => {
       try {
         const response = await fetch(`/api/views?studentId=${userId}`);
+        if (!response.ok) {
+          throw new Error("Failed to fetch views data");
+        }
+
         const data = await response.json();
 
         if (!data || data.length === 0) {
-          setError("0"); // No views found, show 0
+          setViews("0");
           setLoading(false);
           return;
         }
 
-        // Calculate total lifetime views
         const totalViews = data.reduce((sum: number, record: { views: string }) => {
           return sum + (parseInt(record.views) || 0);
         }, 0);
 
-        setViews(totalViews.toLocaleString());
+        setViews(totalViews.toLocaleString("en-US"));
         setLoading(false);
-      } catch (err) {
-        console.error("Error fetching lifetime views:", err);
+      } catch (err: any) {
+        console.error("Error fetching lifetime views:", err.message);
         setError("Failed to fetch data.");
         setLoading(false);
       }
@@ -42,37 +49,27 @@ const LifetimeViews = () => {
   }, [userId]);
 
   return (
-    <div className="bg-gray-900 rounded-xl p-4 border border-gray-700 shadow-md w-full flex flex-col">
-      {/* Header */}
+    <div className="bg-gradient-to-r from-yellow-300 to-yellow-400 rounded-xl p-4 border-2 border-yellow-500 shadow-xl w-full flex flex-col hover:scale-105 hover:shadow-2xl transition-all duration-300">
       <div className="flex justify-between items-center">
-        <span className="text-xs bg-blue-600 px-3 py-1 rounded-full text-white font-semibold shadow-md">
-          Lifetime Views
+        <span className="text-xs bg-black px-3 py-1 rounded-full text-white font-semibold shadow-md">
+          Lifetime
         </span>
-        <div className="ml-2 sm:ml-4">
-          <Image
-            src="/more.png"
-            alt="More"
-            width={20}
-            height={20}
-            className="opacity-70 hover:opacity-100 transition-opacity duration-200 cursor-pointer"
-          />
-        </div>
+        <FaEllipsisH className="text-yellow-500 hover:text-yellow-600 transition-colors duration-200 cursor-pointer" />
       </div>
 
-      {/* Views Count */}
       <h1
-        className="font-bold my-3 text-blue-400 tracking-wide sm:text-left text-center"
+        className="font-bold my-3 text-black tracking-wide sm:text-left text-center"
         style={{
           fontSize: "clamp(1.5rem, 5vw, 2.25rem)",
           wordBreak: "break-word",
           overflowWrap: "break-word",
         }}
       >
-        {loading ? "Loading..." : error ? <span className="text-blue-400">{error}</span> : views}
+        {loading ? "Loading..." : error ? <span className="text-red-500">{error}</span> : views}
       </h1>
 
-      <h2 className="capitalize text-sm font-medium text-gray-400 sm:text-left text-center">
-        Total Views
+      <h2 className="capitalize text-sm font-medium text-gray-900 sm:text-left text-center">
+        Lifetime Views
       </h2>
     </div>
   );

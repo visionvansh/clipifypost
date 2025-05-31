@@ -21,6 +21,16 @@ const RevenueChart = async ({ type }: { type: "Your Revenue" }) => {
           rate: true,
         },
       },
+      reel: {
+        select: {
+          status: true,
+          views: true,
+          createdAt: true,
+        },
+        orderBy: {
+          createdAt: "asc", // To get the status history in chronological order
+        },
+      },
     },
   });
 

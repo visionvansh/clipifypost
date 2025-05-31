@@ -1,14 +1,11 @@
 import prisma from "@/lib/prisma";
 import Table from "@/components/Table";
 import Pagination from "@/components/Pagination";
+import Link from "next/link";
 
 async function getCompanies(userId: string) {
-  const clips = await prisma.clip.findMany({
-    where: { account: { userId } },
-    include: { company: true },
-    distinct: ["companyId"],
-  });
-  return clips.map((clip) => clip.company);
+  // Fetch all companies, regardless of user association
+  return await prisma.company.findMany();
 }
 
 async function getStudent(userId: string) {
@@ -18,12 +15,17 @@ async function getStudent(userId: string) {
   });
 }
 
-export default async function CompaniesPage({ searchParams }: { searchParams: { userId: string } }) {
-  const userId = searchParams.userId;
+export default async function CompaniesPage({ searchParams }: { searchParams: Promise<{ userId?: string }> }) {
+  const params = await searchParams; // Await searchParams to fix the error
+  const userId = params.userId;
   if (!userId) return <div className="text-[#e0e0e0] bg-[#1a1a1a] p-6">User ID missing</div>;
 
   const companies = await getCompanies(userId);
   const student = await getStudent(userId);
+
+  // Debug log to check companies
+  console.log("CompaniesPage - userId:", userId);
+  console.log("CompaniesPage - companies:", companies);
 
   const columns = [
     { header: "Company Name", accessor: "name", className: "min-w-[250px]" },
@@ -37,12 +39,12 @@ export default async function CompaniesPage({ searchParams }: { searchParams: { 
     >
       <td className="text-gray-300 p-4">{company.name}</td>
       <td>
-        <a
+        <Link
           href={`/list/checking/companies/accounts?userId=${userId}&companyId=${company.id}`}
           className="text-blue-500 hover:underline"
         >
           View Accounts →
-        </a>
+        </Link>
       </td>
     </tr>
   );
@@ -53,17 +55,23 @@ export default async function CompaniesPage({ searchParams }: { searchParams: { 
         {/* Header */}
         <div className="flex flex-col gap-2 w-full mb-4">
           <h1 className="text-xl md:text-2xl font-bold text-gray-300">
-            Companies for <strong>{student?.username}</strong> 🏢
+            Companies for <strong>{student?.username || "User"}</strong> 🏢
           </h1>
           <div className="text-sm text-gray-400 space-x-2">
-            <a href="/list/checking" className="text-blue-500 hover:underline">Users</a> /
+            <Link href="/list/checking" className="text-blue-500 hover:underline">Users</Link> /
             <span className="text-white"> Companies</span>
           </div>
         </div>
 
         {/* Table */}
         <div className="overflow-x-auto bg-gray-900 rounded-md">
-          <Table columns={columns} renderRow={renderRow} data={companies} />
+          {companies.length > 0 ? (
+            <Table columns={columns} renderRow={renderRow} data={companies} />
+          ) : (
+            <div className="text-gray-400 text-center p-6">
+              No companies found for this user.
+            </div>
+          )}
         </div>
 
         {/* Pagination Placeholder (if needed) */}

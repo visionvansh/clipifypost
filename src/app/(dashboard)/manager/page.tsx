@@ -7,7 +7,9 @@ import RevFetch from "@/components/VewChart";
 import RevChart from "@/components/RevChart";
 import UserCard from "@/components/UserCard";
 
-const Manager = ({ searchParams }: { searchParams: { [keys: string]: string | undefined } }) => {
+export default async function Manager({ searchParams }: { searchParams: Promise<{ [key: string]: string | undefined }> }) {
+  const resolvedSearchParams = await searchParams;
+
   return (
     <div className="bg-black w-full h-screen overflow-hidden">
       {/* Single Scrollable Container */}
@@ -82,6 +84,4 @@ const Manager = ({ searchParams }: { searchParams: { [keys: string]: string | un
       </div> {/* End Single Scrollable Container */}
     </div>
   );
-};
-
-export default Manager;
+}

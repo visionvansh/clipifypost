@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { useAuth } from "@clerk/nextjs";
-import Image from "next/image";
+import { FaEllipsisH } from "react-icons/fa";
 
 const LifetimeRevenueCard = () => {
   const { userId } = useAuth();
@@ -11,28 +11,35 @@ const LifetimeRevenueCard = () => {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!userId) return;
+    if (!userId) {
+      setRevenue("$0.00");
+      setLoading(false);
+      return;
+    }
 
     const fetchLifetimeRevenue = async () => {
       try {
         const response = await fetch(`/api/revenue?studentId=${userId}`);
+        if (!response.ok) {
+          throw new Error("Failed to fetch revenue data");
+        }
+
         const data = await response.json();
 
         if (!data || data.length === 0) {
-          setError("$0"); // No revenue found, show $0
+          setRevenue("$0.00");
           setLoading(false);
           return;
         }
 
-        // Calculate total lifetime revenue
         const totalRevenue = data.reduce((sum: number, record: { revenue: string }) => {
           return sum + (parseFloat(record.revenue) || 0);
         }, 0);
 
-        setRevenue(`$${totalRevenue.toLocaleString()}`);
+        setRevenue(`$${totalRevenue.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
         setLoading(false);
-      } catch (err) {
-        console.error("Error fetching lifetime revenue:", err);
+      } catch (err: any) {
+        console.error("Error fetching lifetime revenue:", err.message);
         setError("Failed to fetch data.");
         setLoading(false);
       }
@@ -42,37 +49,27 @@ const LifetimeRevenueCard = () => {
   }, [userId]);
 
   return (
-    <div className="bg-gray-900 rounded-xl p-4 border border-gray-700 shadow-md w-full flex flex-col">
-      {/* Header */}
+    <div className="bg-gradient-to-r from-yellow-500 to-yellow-600 rounded-xl p-4 border-2 border-yellow-500 shadow-xl w-full flex flex-col hover:scale-105 hover:shadow-2xl transition-all duration-300">
       <div className="flex justify-between items-center">
-        <span className="text-xs bg-yellow-600 px-3 py-1 rounded-full text-white font-semibold shadow-md">
-          Lifetime Revenue
+        <span className="text-xs bg-black px-3 py-1 rounded-full text-white font-semibold shadow-md">
+          Lifetime
         </span>
-        <div className="ml-2 sm:ml-4">
-          <Image
-            src="/more.png"
-            alt="More"
-            width={20}
-            height={20}
-            className="opacity-70 hover:opacity-100 transition-opacity duration-200 cursor-pointer"
-          />
-        </div>
+        <FaEllipsisH className="text-yellow-500 hover:text-yellow-600 transition-colors duration-200 cursor-pointer" />
       </div>
 
-      {/* Revenue Amount */}
       <h1
-        className="font-bold my-3 text-yellow-400 tracking-wide sm:text-left text-center"
+        className="font-bold my-3 text-black tracking-wide sm:text-left text-center"
         style={{
           fontSize: "clamp(1.5rem, 5vw, 2.25rem)",
           wordBreak: "break-word",
           overflowWrap: "break-word",
         }}
       >
-        {loading ? "Loading..." : error ? <span className="text-yellow-400">{error}</span> : revenue}
+        {loading ? "Loading..." : error ? <span className="text-red-500">{error}</span> : revenue}
       </h1>
 
-      <h2 className="capitalize text-sm font-medium text-gray-400 sm:text-left text-center">
-        Total Revenue
+      <h2 className="capitalize text-sm font-medium text-gray-900 sm:text-left text-center">
+        Lifetime Revenue
       </h2>
     </div>
   );

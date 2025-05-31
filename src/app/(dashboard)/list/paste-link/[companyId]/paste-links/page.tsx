@@ -1,17 +1,20 @@
-import { auth } from "@clerk/nextjs/server";
+import { auth, currentUser } from "@clerk/nextjs/server";
 import prisma from "@/lib/prisma";
 import { redirect } from "next/navigation";
-import Link from "next/link";
 import ClientPasteLinksForm from "./ClientPasteLinksForm";
 import { revalidatePath } from "next/cache";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import BottomNavbar from "@/components/BottomNavbar";
 
 type Account = {
   id: number;
+  userId: string;
   instagramLink: string;
+  verificationCode: string | null;
   isVerified: boolean;
   status: string;
+  driveLink: string | null;
 };
 
 type Clip = {
@@ -21,7 +24,9 @@ type Clip = {
   views: number;
   previousApprovedViews: number | null;
   status: string;
+  postedAt: Date;
   account: Account;
+  companyId: number;
 };
 
 const extractUsername = (url: string): string => {
@@ -36,11 +41,10 @@ const extractUsername = (url: string): string => {
 };
 
 const isValidClipLink = (link: string): boolean => {
-  const instagramRegex = /^https?:\/\/(www\.)?instagram\.com\/(reel|p)\/[A-Za-z0-9_-]+(\/|\?.*)?$/;
+  const instagramRegex = /^https?:\/\/(www\.)?instagram\.com\/(reel|p)\/[A-Za-z0-9_-]+(\/)?(\?.*)?$/;
   const youtubeRegex = /^https?:\/\/(www\.)?(youtube\.com\/(watch\?v=|shorts\/)|youtu\.be\/)[A-Za-z0-9_-]+(\/|\?.*)?$/;
   const tiktokRegex = /^https?:\/\/(www\.)?tiktok\.com\/@[A-Za-z0-9_.]+\/video\/\d+(\/|\?.*)?$/;
   
-  // Debugging log (remove in production)
   console.log("Validating link:", link, {
     instagram: instagramRegex.test(link),
     youtube: youtubeRegex.test(link),
@@ -55,43 +59,60 @@ const extractClipId = (link: string): string | null => {
     const parsedUrl = new URL(link);
     const path = parsedUrl.pathname;
 
-    // Instagram: /reel/DImfF7qB_gb/ or /p/DImfF7qB_gb/
     if (link.includes("instagram.com")) {
       const match = path.match(/\/(reel|p)\/([A-Za-z0-9_-]+)/);
-      console.log("Instagram match:", match); // Debugging log
+      console.log("Instagram match:", match);
       return match ? match[2] : null;
     }
 
-    // YouTube: /watch?v=dQw4w9WgXcQ, /shorts/dQw4w9WgXcQ, youtu.be/dQw4w9WgXcQ
     if (link.includes("youtube.com") || link.includes("youtu.be")) {
       if (path.includes("/watch")) {
         const params = new URLSearchParams(parsedUrl.search);
         const id = params.get("v");
-        console.log("YouTube watch ID:", id); // Debugging log
+        console.log("YouTube watch ID:", id);
         return id || null;
       }
       const match = path.match(/\/(shorts\/)?([A-Za-z0-9_-]+)/);
-      console.log("YouTube match:", match); // Debugging log
+      console.log("YouTube match:", match);
       return match ? match[2] : null;
     }
 
-    // TikTok: /@username/video/1234567890123456789
     if (link.includes("tiktok.com")) {
       const match = path.match(/\/video\/(\d+)/);
-      console.log("TikTok match:", match); // Debugging log
+      console.log("TikTok match:", match);
       return match ? match[1] : null;
     }
 
     return null;
   } catch (error) {
-    console.error("Error extracting clip ID:", error); // Debugging log
+    console.error("Error extracting clip ID:", error);
     return null;
   }
 };
 
-export default async function PasteLinksPage({ params }: { params: { companyId: string } }) {
+const sendNtfyNotification = async (message: string) => {
+  try {
+    await fetch("https://ntfy.sh/clipifyuploaders", {
+      method: "POST",
+      body: message,
+      headers: { "Content-Type": "text/plain" },
+    });
+  } catch (error) {
+    console.error("Failed to send ntfy notification:", error);
+  }
+};
+
+const LinkIcon = () => (
+  <svg className="w-8 h-8 text-yellow-500 glowing-icon moving-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M15 7h3a5 5 0 0 1 5 5 5 5 0 0 1-5 5h-3m-6 0H6a5 5 0 0 1-5-5 5 5 0 0 1 5-5h3" />
+    <line x1="8" y1="12" x2="16" y2="12" />
+  </svg>
+);
+
+export default async function PasteLinksPage({ params }: { params: Promise<{ companyId: string }> }) {
   const { userId } = await auth();
-  const companyId = parseInt(params.companyId);
+  const { companyId: companyIdStr } = await params;
+  const companyId = parseInt(companyIdStr);
 
   if (!userId) return redirect("/sign-in");
 
@@ -102,8 +123,8 @@ export default async function PasteLinksPage({ params }: { params: { companyId: 
 
   if (!user) {
     return (
-      <div className="min-h-screen w-full flex justify-center items-center bg-[#000000]">
-        <h1 className="text-gray-300 text-2xl">User not found! UserID: {userId}</h1>
+      <div className="bg-[#121212] min-h-screen w-full flex justify-center items-center">
+        <h1 className="text-gray-300 text-xl">User not found! UserID: {userId}</h1>
       </div>
     );
   }
@@ -112,17 +133,23 @@ export default async function PasteLinksPage({ params }: { params: { companyId: 
 
   if (!company) {
     return (
-      <div className="min-h-screen w-full flex justify-center items-center bg-[#000000]">
-        <h1 className="text-gray-300 text-2xl">Company not found! CompanyID: {companyId}</h1>
+      <div className="bg-[#121212] min-h-screen w-full flex justify-center items-center">
+        <h1 className="text-gray-300 text-xl">Company not found! CompanyID: {companyId}</h1>
       </div>
     );
   }
 
-  const initialClips = await prisma.clip.findMany({
+  const rawClips = await prisma.clip.findMany({
     where: { companyId, accountId: { in: user.accounts.map((acc) => acc.id) } },
     include: { account: true },
     orderBy: { id: "desc" },
   });
+
+  const initialClips: Clip[] = rawClips.map((clip) => ({
+    ...clip,
+    companyId,
+    postedAt: clip.postedAt || new Date(),
+  }));
 
   const handleClipSubmit = async (formData: FormData) => {
     "use server";
@@ -140,7 +167,6 @@ export default async function PasteLinksPage({ params }: { params: { companyId: 
       throw new Error("Could not extract clip ID from the link!");
     }
 
-    // Fetch all clips for the company and check for duplicate clipId
     const existingClips = await prisma.clip.findMany({
       where: { companyId },
       select: { link: true },
@@ -161,19 +187,32 @@ export default async function PasteLinksPage({ params }: { params: { companyId: 
         views,
         status: "pending",
         previousApprovedViews: null,
+        postedAt: new Date(),
       },
       include: { account: true },
     });
 
+    const clerkUser = await currentUser();
+    const clerkUsername = clerkUser?.username || clerkUser?.firstName || "Unknown";
+    const company = await prisma.company.findUnique({ where: { id: companyId } });
+    const accountName = extractUsername(newClip.account.instagramLink);
+    await sendNtfyNotification(`${clerkUsername} submitted clip link for ${company?.name || 'Unknown Company'} for account ${accountName}`);
+
+    const formattedClip: Clip = {
+      ...newClip,
+      companyId,
+      postedAt: newClip.postedAt || new Date(),
+    };
+
     revalidatePath(`/list/paste-link/${companyId}/paste-links`);
-    return { message: "Clip submitted successfully!", clip: newClip };
+    return { message: "Clip submitted successfully!", clip: formattedClip };
   };
 
   const handleUpdateViews = async (formData: FormData) => {
     "use server";
     const clipId = parseInt(formData.get("clipId") as string);
     const views = parseInt(formData.get("views") as string);
-    const companyId = parseInt(params.companyId);
+    const companyId = parseInt(companyIdStr);
 
     const clip = await prisma.clip.findUnique({
       where: { id: clipId },
@@ -192,42 +231,37 @@ export default async function PasteLinksPage({ params }: { params: { companyId: 
       include: { account: true },
     });
 
+    const formattedClip: Clip = {
+      ...updatedClip,
+      companyId,
+      postedAt: updatedClip.postedAt || new Date(),
+    };
+
     revalidatePath(`/list/paste-link/${companyId}/paste-links`);
-    return { message: "Views updated, awaiting admin approval!", clip: updatedClip };
+    return { message: "Views updated, awaiting admin approval!", clip: formattedClip };
   };
 
   return (
-    <div className="min-h-screen w-full flex flex-col bg-[#000000]">
-      <nav className="w-full bg-[#1a1a1a]/90 backdrop-blur-md py-3 px-4 flex flex-col items-center gap-3 fixed top-0 z-10 shadow-lg border-b border-[#333333] sm:flex-row sm:justify-center sm:gap-8">
-        <Link className="lg:ml-[-330px]" href={`/list/paste-link/${companyId}/verify`}>
-          <div className="bg-gradient-to-r from-blue-600 to-blue-800 text-white px-4 py-2 rounded-lg hover:from-blue-700 hover:to-blue-900 transition-all shadow-md text-base font-semibold tracking-wide transform hover:scale-105 hover:shadow-xl flex items-center gap-1 w-full sm:w-auto text-center justify-center">
-            Verify 🔥
-          </div>
-        </Link>
-        <Link href={`/list/paste-link/${companyId}/paste-links`}>
-          <div className="bg-gradient-to-r from-green-600 to-green-800 text-white px-4 py-2 rounded-lg hover:from-green-700 hover:to-green-900 transition-all shadow-md text-base font-semibold tracking-wide transform hover:scale-105 hover:shadow-xl flex items-center gap-1 w-full sm:w-auto text-center justify-center">
-            Paste Links 📎
-          </div>
-        </Link>
-        <Link href={`/list/paste-link/${companyId}/promotions`}>
-          <div className="bg-gradient-to-r from-purple-600 to-purple-800 text-white px-4 py-2 rounded-lg hover:from-purple-700 hover:to-purple-900 transition-all shadow-md text-base font-semibold tracking-wide transform hover:scale-105 hover:shadow-xl flex items-center gap-1 w-full sm:w-auto text-center justify-center">
-            Promotions ✨
-          </div>
-        </Link>
-      </nav>
-
-      <div className="w-full max-w-4xl mx-auto pt-20 sm:pt-14 pb-4 px-4 sm:px-6 flex-grow">
-        <h2 className="text-xl sm:text-2xl font-extrabold text-gray-200 mb-3 sm:mb-4 text-center">
-          Paste Links for {company.name} 📎
-        </h2>
-        <ClientPasteLinksForm
-          handleClipSubmit={handleClipSubmit}
-          handleUpdateViews={handleUpdateViews}
-          initialAccounts={user.accounts}
-          companyId={companyId}
-          initialClips={initialClips}
-        />
+    <div className="bg-[#121212] min-h-screen w-full text-gray-200 flex flex-col overflow-y-auto">
+      <div className="w-full pt-4 pb-20 px-4 sm:px-8 lg:px-0 flex-grow bg-[#121212]">
+        <div className="flex items-center justify-center space-x-2 mb-7 animate-fadeIn">
+          <LinkIcon />
+          <h2 className="text-5xl md:text-5xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-yellow-400 to-yellow-600 tracking-tight glow-text">
+            Paste Links for {company.name}
+          </h2>
+          <LinkIcon />
+        </div>
+        <div className="animate-slideIn w-full bg-[#121212]">
+          <ClientPasteLinksForm
+            handleClipSubmit={handleClipSubmit}
+            handleUpdateViews={handleUpdateViews}
+            initialAccounts={user.accounts}
+            companyId={companyId}
+            initialClips={initialClips}
+          />
+        </div>
       </div>
+      <BottomNavbar companyId={companyIdStr} />
       <ToastContainer
         position="top-right"
         autoClose={3000}

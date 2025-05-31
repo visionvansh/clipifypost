@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
 
   logWithTimestamp("API /upload-reel called", {
     userAgent: req.headers.get("user-agent"),
-    ip: req.ip,
+    ip: req.headers.get('x-forwarded-for') || null, // Fix: Use x-forwarded-for header
   });
 
   try {
@@ -189,7 +189,7 @@ export async function POST(req: NextRequest) {
       message: errorMessage,
       stack: errorStack,
       userAgent: req.headers.get("user-agent"),
-      ip: req.ip,
+      ip: req.headers.get('x-forwarded-for') || null, // Fix: Use x-forwarded-for header
     });
     return NextResponse.json(
       { error: "Upload failed", details: errorMessage || "An unexpected error occurred" },

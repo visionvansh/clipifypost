@@ -5,6 +5,7 @@ import ReelActionForm from "@/components/ReelActionForm";
 import { ITEM_PER_PAGE } from "@/lib/settings";
 import Pagination from "@/components/Pagination";
 import TableSearch from "@/components/TableSearch";
+import { useSearchParams } from "next/navigation"; // Import useSearchParams
 
 type UserReelWithBrand = {
   id: number;
@@ -28,11 +29,8 @@ type User = {
   username: string;
 };
 
-interface AdminPageProps {
-  searchParams: { [key: string]: string | undefined };
-}
-
-export default function AdminPage({ searchParams }: AdminPageProps) {
+export default function AdminPage() {
+  const searchParams = useSearchParams(); // Use hook to access query params
   const [message, setMessage] = useState<string | null>(null);
   const [data, setData] = useState<{
     users: User[];
@@ -51,7 +49,7 @@ export default function AdminPage({ searchParams }: AdminPageProps) {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const query = new URLSearchParams(searchParams as any).toString();
+        const query = searchParams.toString(); // Convert searchParams to query string
         const response = await fetch(`/api/admin/data?${query}`);
         if (response.ok) {
           const result = await response.json();
@@ -122,6 +120,11 @@ export default function AdminPage({ searchParams }: AdminPageProps) {
     );
   }
 
+  // Access query params using get()
+  const userId = searchParams.get("userId");
+  const brandId = searchParams.get("brandId");
+  const page = searchParams.get("page");
+
   return (
     <div className="bg-black w-full h-screen overflow-hidden">
       <div className="p-6 h-full overflow-y-auto text-white">
@@ -157,16 +160,16 @@ export default function AdminPage({ searchParams }: AdminPageProps) {
           </div>
         </div>
 
-        {searchParams.userId && (
+        {userId && (
           <div className="bg-gray-900 border border-gray-700 rounded-xl p-6 mt-8 shadow-lg">
             <h2 className="text-xl font-semibold mb-4">
-              Brands for {users.find((u) => u.id === searchParams.userId)?.username}
+              Brands for {users.find((u) => u.id === userId)?.username}
             </h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {brands.map((brand) => (
                 <a
                   key={brand.id}
-                  href={`?userId=${searchParams.userId}&brandId=${brand.id}`}
+                  href={`?userId=${userId}&brandId=${brand.id}`}
                   className="p-4 rounded-lg bg-gray-800 hover:bg-gray-700 transition duration-300"
                 >
                   <span className="text-blue-400 hover:text-blue-300">
@@ -178,7 +181,7 @@ export default function AdminPage({ searchParams }: AdminPageProps) {
           </div>
         )}
 
-        {searchParams.userId && searchParams.brandId && (
+        {userId && brandId && (
           <div className="bg-gray-900 border border-gray-700 rounded-xl p-6 mt-8 shadow-lg overflow-x-auto">
             <table className="w-full text-left">
               <thead>
@@ -251,7 +254,7 @@ export default function AdminPage({ searchParams }: AdminPageProps) {
             </table>
             <div className="flex justify-center mt-4">
               <Pagination
-                page={searchParams.page ? parseInt(searchParams.page) : 1}
+                page={page ? parseInt(page) : 1}
                 count={count}
               />
             </div>

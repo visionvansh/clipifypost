@@ -1,4 +1,3 @@
-
 "use client";
 
 import Image from "next/image";
@@ -27,6 +26,7 @@ const TableSearch = () => {
         type="text"
         placeholder="Search..."
         className="w-[200px] p-2 bg-transparent outline-none"
+        suppressHydrationWarning={true} // Hydration error fix karne ke liye
       />
     </form>
   );

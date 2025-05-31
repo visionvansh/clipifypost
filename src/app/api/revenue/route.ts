@@ -10,9 +10,34 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const resultRecords = await prisma.result.findMany({
-      where: { studentId },
-      select: { revenue: true, createdAt: true },
+    // Fetch clips for the student through their accounts
+    const clips = await prisma.clip.findMany({
+      where: {
+        account: {
+          userId: studentId,
+        },
+        status: "approved", // Only fetch approved clips
+      },
+      select: {
+        views: true,
+        company: {
+          select: {
+            rate: true,
+          },
+        },
+        postedAt: true,
+      },
+    });
+
+    // Calculate revenue for each clip and format it like Result records
+    const resultRecords = clips.map((clip) => {
+      const viewsValue = clip.views || 0;
+      const rate = parseFloat(clip.company?.rate || "0");
+      const revenue = (viewsValue / 100000) * rate;
+      return {
+        revenue: revenue.toString(),
+        createdAt: clip.postedAt || new Date(), // Use postedAt or current date as fallback
+      };
     });
 
     return NextResponse.json(resultRecords);

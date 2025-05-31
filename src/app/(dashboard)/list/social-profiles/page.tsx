@@ -76,7 +76,7 @@ export default async function AddCompanyPage() {
         <form
           action={handleSubmit}
           className="bg-gray-900 p-6 rounded-lg shadow-lg w-full max-w-md border border-gray-700"
-          encType="multipart/form-data"
+          suppressHydrationWarning
         >
           <div className="mb-4">
             <label htmlFor="name" className="text-gray-100 text-sm font-semibold mb-1 block">

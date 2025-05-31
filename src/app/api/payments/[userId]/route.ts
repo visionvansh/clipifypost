@@ -2,8 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 
 // GET: User ka payment data fetch karo
-export async function GET(request: NextRequest, { params }: { params: { userId: string } }) {
-  const userId = params.userId;
+export async function GET(request: NextRequest) {
+  const url = new URL(request.url);
+  const userId = url.pathname.split('/').pop();
+  if (!userId) {
+    return new NextResponse("User ID not provided", { status: 400 });
+  }
   try {
     const announcement = await prisma.announcement.findUnique({
       where: { userId: userId },
@@ -24,8 +28,12 @@ export async function GET(request: NextRequest, { params }: { params: { userId: 
 }
 
 // PUT: Payment data ko save ya update karo
-export async function PUT(request: NextRequest, { params }: { params: { userId: string } }) {
-  const userId = params.userId;
+export async function PUT(request: NextRequest) {
+  const url = new URL(request.url);
+  const userId = url.pathname.split('/').pop();
+  if (!userId) {
+    return new NextResponse("User ID not provided", { status: 400 });
+  }
   try {
     const { title, description } = await request.json();
 

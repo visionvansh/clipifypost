@@ -16,6 +16,16 @@ const ViewsChart = async ({ type }: { type: "Your Views" }) => {
     select: {
       views: true,
       createdAt: true,
+      reel: {
+        select: {
+          status: true,
+          views: true,
+          createdAt: true,
+        },
+        orderBy: {
+          createdAt: "asc", // To get the status history in chronological order
+        },
+      },
     },
   });
 

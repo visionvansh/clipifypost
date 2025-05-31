@@ -5,19 +5,31 @@ import Link from "next/link";
 import ClientAllLinksTable from "./ClientAllLinksTable";
 import { revalidatePath } from "next/cache";
 
+type Account = {
+  id: number;
+  userId: string;
+  instagramLink: string;
+  verificationCode: string | null;
+  isVerified: boolean;
+  status: string;
+  driveLink: string | null;
+};
+
 type Clip = {
   id: number;
   accountId: number;
   link: string;
   views: number;
-  previousApprovedViews: number | null; // Added
+  previousApprovedViews: number | null;
   status: string;
-  account: { instagramLink: string };
+  postedAt: Date;
+  account: Account;
 };
 
-export default async function AllLinksPage({ params }: { params: { companyId: string } }) {
+export default async function AllLinksPage({ params }: { params: Promise<{ companyId: string }> }) {
+  const resolvedParams = await params;
+  const companyId = parseInt(resolvedParams.companyId);
   const { userId } = await auth();
-  const companyId = parseInt(params.companyId);
 
   if (!userId) return redirect("/sign-in");
 
@@ -44,17 +56,22 @@ export default async function AllLinksPage({ params }: { params: { companyId: st
     );
   }
 
-  const initialClips = await prisma.clip.findMany({
+  const rawClips = await prisma.clip.findMany({
     where: { companyId, accountId: { in: user.accounts.map((acc) => acc.id) } },
     include: { account: true },
     orderBy: { id: "desc" },
   });
 
+  const initialClips: Clip[] = rawClips.map((clip) => ({
+    ...clip,
+    postedAt: clip.postedAt || new Date(),
+  }));
+
   const handleUpdateViews = async (formData: FormData) => {
     "use server";
     const clipId = parseInt(formData.get("clipId") as string);
     const views = parseInt(formData.get("views") as string);
-    const companyId = parseInt(params.companyId);
+    const companyId = parseInt(resolvedParams.companyId);
 
     const clip = await prisma.clip.findUnique({
       where: { id: clipId },
@@ -73,38 +90,18 @@ export default async function AllLinksPage({ params }: { params: { companyId: st
       include: { account: true },
     });
 
+    const formattedClip: Clip = {
+      ...updatedClip,
+      postedAt: updatedClip.postedAt || new Date(),
+    };
+
     revalidatePath(`/list/paste-link/${companyId}/all-links`);
-    return { message: "Views updated, awaiting admin approval!", clip: updatedClip };
+    return { message: "Views updated, awaiting admin approval!", clip: formattedClip };
   };
 
   return (
     <div className="min-h-screen w-full flex flex-col items-center bg-[#000] overflow-x-hidden">
-      <div className="bg-[#121212] p-4 sm:p-6 max-w-7xl w-full">
-        <div className="w-full flex flex-wrap justify-center gap-4 sm:gap-6 p-4 bg-[#121212] mt-16">
-          <Link href={`/list/paste-link/${companyId}/verify`} className="w-auto">
-            <div className="bg-gradient-to-r from-blue-500 to-blue-700 text-white px-6 py-3 rounded-full hover:from-blue-600 hover:to-blue-800 text-lg font-medium text-center">
-              Verify 🔥
-            </div>
-          </Link>
-          <Link href={`/list/paste-link/${companyId}/paste-links`} className="w-auto">
-            <div className="bg-gradient-to-r from-green-500 to-green-700 text-white px-6 py-3 rounded-full hover:from-green-600 hover:to-green-800 text-lg font-medium text-center">
-              Paste Links 📎
-            </div>
-          </Link>
-          <Link href={`/list/paste-link/${companyId}/promotions`} className="w-auto">
-            <div className="bg-gradient-to-r from-purple-500 to-purple-700 text-white px-6 py-3 rounded-full hover:from-purple-600 hover:to-blue-800 text-lg font-medium text-center">
-              Promotions ✨
-            </div>
-          </Link>
-        </div>
-
-        <div className="bg-[#121212] rounded-md p-4">
-          <h2 className="text-3xl sm:text-5xl font-extrabold text-gray-200 mb-6 text-center">
-            All Submitted Links for {company.name} 📋
-          </h2>
-          <ClientAllLinksTable handleUpdateViews={handleUpdateViews} initialClips={initialClips} />
-        </div>
-      </div>
+      <ClientAllLinksTable handleUpdateViews={handleUpdateViews} initialClips={initialClips} />
     </div>
   );
 }

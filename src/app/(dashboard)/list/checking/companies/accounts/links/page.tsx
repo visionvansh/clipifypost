@@ -1,19 +1,24 @@
+import Link from "next/link";
 import Table from "@/components/Table";
 import Pagination from "@/components/Pagination";
 import prisma from "@/lib/prisma";
 import { updateClipStatus } from "@/lib/adminActions";
 import { revalidatePath } from "next/cache";
 
-async function getClips(accountId: number) {
+async function getClips(accountId: number, companyId: number) {
   return prisma.clip.findMany({
-    where: { accountId },
+    where: {
+      accountId,
+      companyId, // Filter clips by companyId
+    },
     select: {
       id: true,
       link: true,
       views: true,
-      previousApprovedViews: true, // Added
+      previousApprovedViews: true,
       status: true,
       companyId: true,
+      postedAt: true, // Use postedAt as per schema
     },
   });
 }
@@ -25,11 +30,26 @@ async function getAccountDetails(accountId: number) {
   });
 }
 
-export default async function LinksPage({ searchParams }: { searchParams: { accountId: string } }) {
-  const accountId = parseInt(searchParams.accountId);
-  if (!accountId) return <div className="text-[#e0e0e0] bg-[#1a1a1a] p-6">Missing account ID</div>;
+export default async function LinksPage({ searchParams }: { searchParams: Promise<{ accountId?: string; companyId?: string }> }) {
+  const params = await searchParams; // Await searchParams to fix the errors
+  // Debug log to check searchParams
+  console.log("searchParams in LinksPage:", params);
 
-  const clips = await getClips(accountId);
+  // Validate and parse accountId
+  const accountIdString = params.accountId;
+  if (!accountIdString || isNaN(parseInt(accountIdString))) {
+    return <div className="text-[#e0e0e0] bg-[#1a1a1a] p-6">Invalid or missing account ID: {accountIdString}</div>;
+  }
+  const accountId = parseInt(accountIdString);
+
+  // Validate and parse companyId
+  const companyIdString = params.companyId;
+  if (!companyIdString || isNaN(parseInt(companyIdString))) {
+    return <div className="text-[#e0e0e0] bg-[#1a1a1a] p-6">Invalid or missing company ID: {companyIdString}</div>;
+  }
+  const companyId = parseInt(companyIdString);
+
+  const clips = await getClips(accountId, companyId);
   const account = await getAccountDetails(accountId);
   const userId = account?.userId;
 
@@ -249,6 +269,7 @@ export default async function LinksPage({ searchParams }: { searchParams: { acco
 
   const columns = [
     { header: "Link", accessor: "link", className: "min-w-[300px]" },
+    { header: "Upload Date", accessor: "postedAt", className: "min-w-[150px]" },
     { header: "Views", accessor: "views", className: "min-w-[100px]" },
     { header: "Status", accessor: "status", className: "min-w-[120px]" },
     { header: "Actions", accessor: "actions", className: "min-w-[200px]" },
@@ -259,7 +280,25 @@ export default async function LinksPage({ searchParams }: { searchParams: { acco
       key={clip.id}
       className="border-b border-gray-700 even:bg-gray-800 text-sm hover:bg-gray-700 transition-all"
     >
-      <td className="text-gray-300 p-4">{clip.link}</td>
+      <td className="text-gray-300 p-4">
+        <a
+          href={clip.link}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-blue-400 hover:underline break-all"
+        >
+          {clip.link}
+        </a>
+      </td>
+      <td className="text-gray-400">
+        {clip.postedAt
+          ? new Date(clip.postedAt).toLocaleDateString("en-US", {
+              year: "numeric",
+              month: "long",
+              day: "numeric",
+            })
+          : "Not Available"}
+      </td>
       <td className="text-gray-400">{clip.views}</td>
       <td className="text-gray-400 capitalize">{clip.status}</td>
       <td>
@@ -267,37 +306,38 @@ export default async function LinksPage({ searchParams }: { searchParams: { acco
           {clip.status === "pending" ? (
             <>
               <form action={handleClipStatus}>
-                <input type="hidden" name="clipId" value={clip.id} />
-                <input type="hidden" name="status" value="approved" />
-                <button className="bg-green-600 text-white px-3 py-1 rounded hover:bg-green-500 text-sm">
+                <input type="hidden" name="clipId" value={clip.id} suppressHydrationWarning />
+                <input type="hidden" name="status" value="approved" suppressHydrationWarning />
+                <button className="bg-green-600 text-white px-3 py-1 rounded hover:bg-green-500 text-sm" suppressHydrationWarning>
                   ✅ Approve
                 </button>
               </form>
               <form action={handleClipStatus}>
-                <input type="hidden" name="clipId" value={clip.id} />
-                <input type="hidden" name="status" value="rejected" />
-                <button className="bg-red-600 text-white px-3 py-1 rounded hover:bg-red-500 text-sm">
+                <input type="hidden" name="clipId" value={clip.id} suppressHydrationWarning />
+                <input type="hidden" name="status" value="rejected" suppressHydrationWarning />
+                <button className="bg-red-600 text-white px-3 py-1 rounded hover:bg-red-500 text-sm" suppressHydrationWarning>
                   ❌ Reject
                 </button>
               </form>
             </>
           ) : null}
           <form action={handleUpdateViews} className="flex gap-1">
-            <input type="hidden" name="clipId" value={clip.id} />
+            <input type="hidden" name="clipId" value={clip.id} suppressHydrationWarning />
             <input
               type="number"
               name="views"
               defaultValue={clip.views}
               className="w-20 p-1 bg-gray-700 text-gray-200 border border-gray-600 rounded text-sm"
               required
+              suppressHydrationWarning
             />
-            <button className="bg-orange-600 text-white px-2 py-1 rounded hover:bg-orange-500 text-sm">
+            <button className="bg-orange-600 text-white px-2 py-1 rounded hover:bg-orange-500 text-sm" suppressHydrationWarning>
               Update
             </button>
           </form>
           <form action={handleClipDelete}>
-            <input type="hidden" name="clipId" value={clip.id} />
-            <button className="bg-gray-600 text-white px-3 py-1 rounded hover:bg-gray-500 text-sm">
+            <input type="hidden" name="clipId" value={clip.id} suppressHydrationWarning />
+            <button className="bg-gray-600 text-white px-3 py-1 rounded hover:bg-gray-500 text-sm" suppressHydrationWarning>
               🗑️ Delete
             </button>
           </form>
@@ -314,9 +354,9 @@ export default async function LinksPage({ searchParams }: { searchParams: { acco
             Clip Links 🎞️
           </h1>
           <div className="text-sm text-gray-400 space-x-2">
-            <a href="/list/checking" className="text-blue-500 hover:underline">Users</a> /
-            <a href={`/list/checking/companies?userId=${userId}`} className="text-blue-500 hover:underline"> Companies</a> /
-            <a href={`/list/checking/companies/accounts?userId=${userId}&companyId=${clips[0]?.companyId}`} className="text-blue-500 hover:underline"> Accounts</a> /
+            <Link href="/list/checking" className="text-blue-500 hover:underline">Users</Link> /
+            <Link href={`/list/checking/companies?userId=${userId}`} className="text-blue-500 hover:underline"> Companies</Link> /
+            <Link href={`/list/checking/companies/accounts?userId=${userId}&companyId=${companyId}`} className="text-blue-500 hover:underline"> Accounts</Link> /
             <span className="text-white">Links</span>
           </div>
         </div>
@@ -326,12 +366,12 @@ export default async function LinksPage({ searchParams }: { searchParams: { acco
         </div>
 
         {userId && clips.length > 0 && (
-          <a
-            href={`/list/checking/companies/accounts?userId=${userId}&companyId=${clips[0].companyId}`}
+          <Link
+            href={`/list/checking/companies/accounts?userId=${userId}&companyId=${companyId}`}
             className="mt-6 inline-block text-blue-500 hover:underline text-sm"
           >
             ← Back to Accounts
-          </a>
+          </Link>
         )}
       </div>
     </div>

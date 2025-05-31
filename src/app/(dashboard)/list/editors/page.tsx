@@ -23,12 +23,13 @@ type Brand = {
 };
 
 interface AddSocialProfilePageProps {
-  searchParams: { [key: string]: string | undefined };
+  searchParams: Promise<{ [key: string]: string | undefined }>; // Promise type kar diya
 }
 
 const AddSocialProfilePage = async ({
-  searchParams,
+  searchParams: searchParamsPromise, // Rename kiya taki clear rahe
 }: AddSocialProfilePageProps) => {
+  const searchParams = await searchParamsPromise; // Pehle await karo
   const { userId } = await auth();
 
   if (!userId) {
@@ -39,7 +40,7 @@ const AddSocialProfilePage = async ({
     );
   }
 
-  const { page, brandId, status, ...queryParams } = searchParams;
+  const { page, brandId, status, ...queryParams } = searchParams; // Ab destructure karo
   const p = page ? parseInt(page) : 1;
 
   const query: Prisma.UserReelWhereInput = { studentId: userId };

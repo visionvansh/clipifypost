@@ -1,8 +1,9 @@
-import { auth } from "@clerk/nextjs/server";
+import { auth, currentUser } from "@clerk/nextjs/server";
 import prisma from "@/lib/prisma";
 import { redirect } from "next/navigation";
-import Link from "next/link";
 import ClientVerifyForm from "./ClientVerifyForm";
+import BottomNavbar from "@/components/BottomNavbar";
+import { Account } from "@/types/account";
 
 const isValidSocialLink = (link: string): boolean => {
   const instagramRegex = /^https?:\/\/(www\.)?instagram\.com\/[a-zA-Z0-9_.]+(\/|\?.*)?$/;
@@ -11,9 +12,40 @@ const isValidSocialLink = (link: string): boolean => {
   return instagramRegex.test(link) || youtubeRegex.test(link) || tiktokRegex.test(link);
 };
 
-export default async function VerifyPage({ params }: { params: { companyId: string } }) {
+const isValidDriveLink = (link: string): boolean => {
+  const driveRegex = /^https?:\/\/(www\.)?(drive\.google\.com)\/(file\/d\/|open\?id=)[a-zA-Z0-9_-]+(\/view)?(\?.*)?$/;
+  return driveRegex.test(link);
+};
+
+const sendNtfyNotification = async (message: string, type: 'account' | 'drive' | 'code') => {
+  const topics = {
+    account: 'clipifyaccount',
+    drive: 'clipifydrive',
+    code: 'clipifycode',
+  };
+  const topic = topics[type];
+  try {
+    await fetch(`https://ntfy.sh/${topic}`, {
+      method: "POST",
+      body: message,
+      headers: { "Content-Type": "text/plain" },
+    });
+  } catch (error) {
+    console.error(`Failed to send ntfy notification to ${topic}:`, error);
+  }
+};
+
+const ShieldIcon = () => (
+  <svg className="w-8 h-8 text-yellow-500 glowing-icon moving-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M12 2L2 7v7c0 5.5 10 10 10 10s10-4.5 10-10V7l-10-5z" />
+    <path d="M9 12l2 2 4-4" />
+  </svg>
+);
+
+export default async function VerifyPage({ params }: { params: Promise<{ companyId: string }> }) {
   const { userId } = await auth();
-  const companyId = params.companyId;
+  const resolvedParams = await params;
+  const companyId = resolvedParams.companyId;
 
   if (!userId) return redirect("/sign-in");
 
@@ -29,6 +61,9 @@ export default async function VerifyPage({ params }: { params: { companyId: stri
       </div>
     );
   }
+
+  const clerkUser = await currentUser();
+  const clerkUsername = clerkUser?.username || clerkUser?.firstName || "Unknown";
 
   const handleAccountSubmit = async (formData: FormData) => {
     "use server";
@@ -46,7 +81,6 @@ export default async function VerifyPage({ params }: { params: { companyId: stri
       throw new Error("Duplicate Account");
     }
 
-    const verificationCode = Math.random().toString(36).substring(2, 8).toUpperCase();
     const { userId: actionUserId } = await auth();
 
     if (!actionUserId) {
@@ -57,74 +91,103 @@ export default async function VerifyPage({ params }: { params: { companyId: stri
       data: {
         userId: actionUserId,
         instagramLink,
-        verificationCode,
+        verificationCode: null,
+        pushedVerificationCode: null,
         isVerified: false,
-        status: "Awaiting Bio Update",
+        status: "Awaiting Analytics",
       },
     });
 
-    return verificationCode;
+    const clerkUser = await currentUser();
+    const clerkUsername = clerkUser?.username || clerkUser?.firstName || "Unknown";
+    const accountName = instagramLink.split("/").pop() || instagramLink;
+    await sendNtfyNotification(`${clerkUsername} submitted ${accountName} and asking for verification code`, 'account');
+
+    return { message: "Account submitted, please submit your account analytics!" };
   };
 
   const handleVerify = async (formData: FormData) => {
     "use server";
+    const driveLink = formData.get("driveLink") as string;
     const instagramLink = formData.get("instagramLink") as string;
+
+    if (!isValidDriveLink(driveLink)) {
+      throw new Error("Invalid Google Drive link! Please provide a valid Drive link.");
+    }
+
+    if (!isValidSocialLink(instagramLink)) {
+      throw new Error("Invalid Instagram link selected!");
+    }
 
     const account = await prisma.account.findFirst({
       where: { instagramLink },
     });
 
     if (!account) {
-      throw new Error("Account not found for this link!");
+      throw new Error("Account not found for this Instagram link!");
     }
 
     await prisma.account.update({
       where: { id: account.id },
-      data: { status: "Pending" },
+      data: {
+        driveLink,
+        status: "Awaiting Code",
+      },
     });
 
-    return "Pending";
+    const clerkUser = await currentUser();
+    const clerkUsername = clerkUser?.username || clerkUser?.firstName || "Unknown";
+    const accountName = instagramLink.split("/").pop() || instagramLink;
+    await sendNtfyNotification(`${clerkUsername} submitted analytics for ${accountName}`, 'drive');
+
+    return "Awaiting Code";
   };
 
-  const displayedAccounts = user.accounts.slice(0, 2);
+  const handlePasteVerificationCode = async (accountId: number) => {
+    "use server";
+    const account = await prisma.account.findUnique({
+      where: { id: accountId },
+    });
+
+    if (!account) {
+      throw new Error("Account not found!");
+    }
+
+    await prisma.account.update({
+      where: { id: accountId },
+      data: {
+        pushedVerificationCode: "Pasted",
+      },
+    });
+
+    const clerkUser = await currentUser();
+    const clerkUsername = clerkUser?.username || clerkUser?.firstName || "Unknown";
+    const accountName = account.instagramLink.split("/").pop() || account.instagramLink;
+    await sendNtfyNotification(`${clerkUsername} pasted his verification code for ${accountName}`, 'code');
+
+    return { message: "Verification code marked as pasted" };
+  };
 
   return (
-    <div className="bg-[#121212] min-h-screen w-full text-gray-200 flex flex-col">
-      {/* Fixed Glassmorphism Navbar */}
-      <nav className="w-full bg-[#1a1a1a]/90 backdrop-blur-md py-4 px-4 flex flex-col items-center gap-4 fixed top-0 z-10 shadow-lg border-b border-[#333333] sm:flex-row sm:justify-center sm:gap-12">
-        <Link className="lg:ml-[-330px]" href={`/list/paste-link/${companyId}/verify`}>
-          <div className="bg-gradient-to-r from-blue-600 to-blue-800 text-white px-6 py-3 rounded-lg hover:from-blue-700 hover:to-blue-900 transition-all shadow-md text-lg font-semibold tracking-wide transform hover:scale-105 hover:shadow-xl flex items-center gap-2 w-full sm:w-auto text-center justify-center">
-            Verify 🔥
-          </div>
-        </Link>
-        <Link href={`/list/paste-link/${companyId}/paste-links`}>
-          <div className="bg-gradient-to-r from-green-600 to-green-800 text-white px-6 py-3 rounded-lg hover:from-green-700 hover:to-green-900 transition-all shadow-md text-lg font-semibold tracking-wide transform hover:scale-105 hover:shadow-xl flex items-center gap-2 w-full sm:w-auto text-center justify-center">
-            Paste Links 📎
-          </div>
-        </Link>
-        <Link href={`/list/paste-link/${companyId}/promotions`}>
-          <div className="bg-gradient-to-r from-purple-600 to-purple-800 text-white px-6 py-3 rounded-lg hover:from-purple-700 hover:to-purple-900 transition-all shadow-md text-lg font-semibold tracking-wide transform hover:scale-105 hover:shadow-xl flex items-center gap-2 w-full sm:w-auto text-center justify-center">
-            Promotions ✨
-          </div>
-        </Link>
-      </nav>
-
-      {/* Main Content with Adjusted Padding */}
-      <div className="w-full max-w-6xl mx-auto pt-40 sm:pt-16 pb-4 px-4 sm:px-6 flex-grow">
-        <h2 className="text-4xl md:text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-red-400 to-purple-600 tracking-tight transform rotate-3d mb-7">
-          Verify Your Account 🔥
-        </h2>
-        <ClientVerifyForm handleAccountSubmit={handleAccountSubmit} handleVerify={handleVerify} initialAccounts={displayedAccounts} />
-        {user.accounts.length > 2 && (
-          <div className="mt-4 flex justify-center">
-            <Link href={`/list/paste-link/${companyId}/all-accounts`}>
-              <button className="bg-gradient-to-r from-blue-500 to-blue-700 text-white px-6 py-2 rounded-full hover:from-blue-600 hover:to-blue-800 text-base font-medium">
-                See More Accounts 🔍
-              </button>
-            </Link>
-          </div>
-        )}
+    <div className="bg-[#121212] min-h-screen w-full text-gray-200 flex flex-col overflow-y-auto">
+      <div className="w-full pt-4 pb-20 px-4 sm:px-8 lg:px-0 flex-grow bg-[#121212]">
+        <div className="flex items-center justify-center space-x-2 mb-7 animate-fadeIn">
+          <ShieldIcon />
+          <h2 className="text-5xl md:text-5xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-yellow-400 to-yellow-600 tracking-tight glow-text">
+            Verify Your Account
+          </h2>
+          <ShieldIcon />
+        </div>
+        <div className="animate-slideIn w-full bg-[#121212]">
+          <ClientVerifyForm
+            handleAccountSubmit={handleAccountSubmit}
+            handleVerify={handleVerify}
+            handlePasteVerificationCode={handlePasteVerificationCode}
+            initialAccounts={user.accounts as Account[]}
+          />
+        </div>
       </div>
+      <BottomNavbar companyId={companyId} />
     </div>
   );
 }

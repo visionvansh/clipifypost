@@ -12,10 +12,26 @@ const LifetimeViewsCard = async ({ type }: { type: "Lifetime Views" }) => {
     },
     select: {
       views: true,
+      reel: {
+        select: {
+          status: true,
+          createdAt: true,
+        },
+        orderBy: {
+          createdAt: "asc", // To get the status history in chronological order
+        },
+      },
     },
   });
 
-  const totalViews = reels.reduce((acc, reel) => acc + (reel.views || 0), 0);
+  // Calculate total views only for APPROVED reels
+  const totalViews = reels.reduce((acc, reel) => {
+    const latestStatus = reel.reel.length > 0 ? reel.reel[reel.reel.length - 1].status : null;
+    if (latestStatus === "APPROVED") {
+      return acc + (reel.views || 0);
+    }
+    return acc; // If PENDING or DISAPPROVED, don't add views
+  }, 0);
 
   return <LifetimeViewsCardClient type={type} totalViews={totalViews} />;
 };

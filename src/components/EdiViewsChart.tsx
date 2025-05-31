@@ -6,7 +6,7 @@ const MonthlyViewsChart = async ({ type }: { type: "Monthly Views" }) => {
   const { userId } = await auth();
   if (!userId) return <div>Please log in</div>;
 
-  // Fetch all reels for the user
+  // Fetch all reels for the user with status history
   const reels = await prisma.userReel.findMany({
     where: {
       studentId: userId,
@@ -14,12 +14,25 @@ const MonthlyViewsChart = async ({ type }: { type: "Monthly Views" }) => {
     select: {
       views: true,
       createdAt: true,
+      reel: {
+        select: {
+          status: true,
+          createdAt: true,
+        },
+        orderBy: {
+          createdAt: "asc", // To get the status history in chronological order
+        },
+      },
     },
   });
 
-  // Group views by year and month
+  // Group views by year and month, only for APPROVED reels
   const yearlyData: { [year: string]: { [month: string]: number } } = {};
   reels.forEach((reel) => {
+    // Check the latest status of the reel
+    const latestStatus = reel.reel.length > 0 ? reel.reel[reel.reel.length - 1].status : null;
+    if (latestStatus !== "APPROVED") return; // Skip if not APPROVED
+
     const date = new Date(reel.createdAt);
     const year = date.getFullYear().toString();
     const month = date.toLocaleString("default", { month: "short" });

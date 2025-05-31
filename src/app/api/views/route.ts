@@ -10,10 +10,25 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const attendanceRecords = await prisma.attendance.findMany({
-      where: { studentId },
-      select: { views: true, createdAt: true },
+    // Fetch clips for the student through their accounts
+    const clips = await prisma.clip.findMany({
+      where: {
+        account: {
+          userId: studentId,
+        },
+        status: "approved", // Only fetch approved clips
+      },
+      select: {
+        views: true,
+        postedAt: true,
+      },
     });
+
+    // Format the response to match the Attendance records structure
+    const attendanceRecords = clips.map((clip) => ({
+      views: clip.views.toString(),
+      createdAt: clip.postedAt || new Date(), // Use postedAt or current date as fallback
+    }));
 
     return NextResponse.json(attendanceRecords);
   } catch (error) {

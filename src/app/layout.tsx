@@ -2,8 +2,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { ClerkProvider } from "@clerk/nextjs";
-import { ToastContainer } from "react-toastify";
-import "react-toastify/dist/ReactToastify.css";
+import ToastWrapper from "@/components/ToastWrapper";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -23,14 +22,16 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <ClerkProvider>
+    <ClerkProvider
+      publishableKey={process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY!}
+    >
       <html lang="en" className="dark">
         <head>
           <link rel="icon" href="/bestlogo.png" type="image/png" />
         </head>
         <body className={`${inter.className} bg-black text-white min-h-screen`}>
           {children}
-          <ToastContainer position="top-right" theme="dark" />
+          <ToastWrapper />
         </body>
       </html>
     </ClerkProvider>

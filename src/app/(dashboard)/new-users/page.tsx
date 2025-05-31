@@ -6,11 +6,13 @@ import { MdOutlineDashboard } from "react-icons/md";
 import Image from 'next/image';
 import UserCard from '@/components/UserCard';
 
-const NewUsers = ({
+export default async function NewUsers({
   searchParams,
 }: {
-  searchParams: { [keys: string]: string | undefined };
-}) => {
+  searchParams: Promise<{ [keys: string]: string | undefined }>;
+}) {
+  const resolvedSearchParams = await searchParams;
+
   return (
     <>
       {/* Dashboard Heading */}
@@ -103,7 +105,7 @@ const NewUsers = ({
 
         {/* RIGHT */}
         <div className="w-full xl:w-1/3 flex flex-col gap-8">
-          <EventCalendarContainer searchParams={searchParams} />
+          <EventCalendarContainer searchParams={resolvedSearchParams} />
         </div>
       </div>
 
@@ -126,6 +128,4 @@ const NewUsers = ({
       </div>
     </>
   );
-};
-
-export default NewUsers;
+}
