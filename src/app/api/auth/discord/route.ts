@@ -1,7 +1,7 @@
 import { NextResponse, NextRequest } from 'next/server';
 import axios from 'axios';
 import prisma from '@/lib/prisma';
-import { Client, GatewayIntentBits, TextChannel, ChannelType } from 'discord.js'; // Added ChannelType
+import { Client, GatewayIntentBits, TextChannel, REST } from 'discord.js';
 import { getAuth } from '@clerk/nextjs/server';
 
 let DiscordClient: Client | null = null;
@@ -17,10 +17,12 @@ async function initializeDiscordClient() {
         GatewayIntentBits.MessageContent,
         GatewayIntentBits.GuildInvites,
         GatewayIntentBits.GuildMembers,
-        
       ],
     });
 
+    if (!process.env.DISCORD_BOT_TOKEN) {
+      throw new Error('DISCORD_BOT_TOKEN is not set');
+    }
     await DiscordClient.login(process.env.DISCORD_BOT_TOKEN);
     console.log('Discord client initialized successfully');
 
@@ -97,7 +99,6 @@ async function initializeDiscordClient() {
 
           if (inviteLink?.student) {
             inviterUsername = inviteLink.student.discordUsername || 'Unknown';
-            // Find inviter's private thread
             if (inviteLink.threadId && DiscordClient) {
               const thread = await guild.channels.fetch(inviteLink.threadId);
               if (thread && thread.isThread()) {
@@ -105,7 +106,6 @@ async function initializeDiscordClient() {
                 console.log(`Sent notification to private thread ${inviteLink.threadId} for ${inviterUsername}`);
               } else {
                 console.warn(`Thread ${inviteLink.threadId} not found or invalid for ${inviterUsername}`);
-                // Fallback to DM if thread is missing
                 const inviterUser = await DiscordClient.users.fetch(inviteLink.discordId || inviteLink.studentId);
                 await inviterUser.send(`New user ${member.user.tag} joined using your invite link!`);
               }
@@ -126,7 +126,6 @@ async function initializeDiscordClient() {
           welcomeMessage += ' No invite details available.';
         }
 
-        // Send welcome message to main channel (unchanged)
         await channel.send(welcomeMessage);
         console.log(`Sent welcome message for ${member.user.tag}`);
 
@@ -519,8 +518,10 @@ export async function GET(request: NextRequest) {
       }
 
       try {
+        const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_BOT_TOKEN!);
         const guild = await DiscordClient.guilds.fetch(guildId);
         const channel = await guild.channels.fetch(channelId);
+
         if (!channel || !channel.isTextBased() || !(channel instanceof TextChannel)) {
           console.error('Invalid text channel:', channelId);
           return NextResponse.redirect(`${process.env.NEXT_PUBLIC_BASE_URL}/?error=invalid_text_channel`);
@@ -532,26 +533,35 @@ export async function GET(request: NextRequest) {
 
         let thread = null;
         if (!existingInviteLink || !existingInviteLink.threadId) {
-          // Create private thread for the user
-          thread = await channel.threads.create({
+          const threadData = {
             name: `referral-${discordUsername}-${discordId}`,
-            type: ChannelType.GuildPrivateThread, // Fixed type
+            type: 12, // GuildPrivateThread
+            auto_archive_duration: 1440,
             invitable: false,
-          });
-          await thread.members.add(discordId);
+          };
+          const threadResponse = await rest.post(`/channels/${channel.id}/threads`, { body: threadData }) as any;
+          thread = threadResponse;
           console.log(`Created private thread ${thread.id} for ${discordUsername}`);
+
+          await rest.put(`/channels/${thread.id}/thread-members/${discordId}`);
+          console.log(`Added member ${discordId} to thread ${thread.id}`);
         } else if (existingInviteLink.threadId) {
-          // Fetch existing thread
-          thread = await guild.channels.fetch(existingInviteLink.threadId);
-          if (!thread || !thread.isThread()) {
+          const threadChannel = await guild.channels.fetch(existingInviteLink.threadId);
+          if (threadChannel && threadChannel.isThread()) {
+            thread = threadChannel;
+          } else {
             console.warn(`Thread ${existingInviteLink.threadId} not found, creating new one`);
-            thread = await channel.threads.create({
+            const threadData = {
               name: `referral-${discordUsername}-${discordId}`,
-              type: ChannelType.GuildPrivateThread, // Fixed type
+              type: 12, // GuildPrivateThread
+              auto_archive_duration: 1440,
               invitable: false,
-            });
-            await thread.members.add(discordId);
+            };
+            const threadResponse = await rest.post(`/channels/${channel.id}/threads`, { body: threadData }) as any;
+            thread = threadResponse;
             console.log(`Created new private thread ${thread.id} for ${discordUsername}`);
+            await rest.put(`/channels/${thread.id}/thread-members/${discordId}`);
+            console.log(`Added member ${discordId} to new thread ${thread.id}`);
           }
         }
 
@@ -568,14 +578,15 @@ export async function GET(request: NextRequest) {
           inviteUrl = inviterInviteLink.inviteLink;
           console.log('Copied inviter InviteLink to new student:', { studentId: authUserId, inviteLink: inviteUrl, threadId: thread?.id });
         } else if (!existingInviteLink) {
-          const invite = await channel.createInvite({
-            maxUses: 0,
-            maxAge: 0,
-            unique: true,
+          const inviteData = {
+            max_age: 0,
+            max_uses: 0,
             temporary: false,
-          });
-          inviteUrl = invite.url;
-          const inviteCode = invite.code;
+            unique: true,
+          };
+          const inviteResponse = await rest.post(`/channels/${channel.id}/invites`, { body: inviteData }) as any;
+          inviteUrl = `https://discord.gg/${inviteResponse.code}`;
+          const inviteCode = inviteResponse.code;
           console.log('Created new invite:', { url: inviteUrl, code: inviteCode });
 
           await prisma.inviteLink.create({
@@ -601,9 +612,12 @@ export async function GET(request: NextRequest) {
           console.log('Updated existing invite link:', { studentId: authUserId, inviteLink: inviteUrl, threadId: thread?.id });
         }
 
-        // Send invite link to private thread instead of main channel
         if (thread) {
-          await thread.send(`New invite link for ${student.discordUsername || 'User'}: ${inviteUrl}`);
+          await rest.post(`/channels/${thread.id}/messages`, {
+            body: {
+              content: `New invite link for ${student.discordUsername || 'User'}: ${inviteUrl}`,
+            },
+          });
           console.log(`Sent invite link to private thread ${thread.id}`);
         } else {
           console.warn('No thread available, sending invite link to DM');
