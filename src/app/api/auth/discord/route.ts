@@ -14,6 +14,7 @@ export async function GET(request: NextRequest) {
       'DISCORD_GUILD_ID',
       'DISCORD_TEXT_CHANNEL_ID',
       'NEXT_PUBLIC_BASE_URL',
+      'DISCORD_BOT_TOKEN',
     ];
     for (const envVar of requiredEnvVars) {
       if (!process.env[envVar]) {
@@ -453,20 +454,41 @@ export async function GET(request: NextRequest) {
         }
 
         if (!existingInviteLink) {
-          const inviteCode = `clipify_${Math.random().toString(36).substring(2, 10)}`;
-          inviteUrl = `https://discord.gg/${inviteCode}`;
-          await prisma.inviteLink.create({
-            data: {
-              studentId: userId,
-              discordId,
-              inviteLink: inviteUrl,
-              inviteCode,
-              threadId,
-              createdAt: new Date(),
-              updatedAt: new Date(),
-            },
-          });
-          console.log('Created invite link:', { studentId: userId, inviteLink: inviteUrl, threadId });
+          try {
+            // Generate valid Discord invite
+            const inviteResponse = await axios.post(
+              `https://discord.com/api/v10/channels/${channelId}/invites`,
+              {
+                max_age: 0,
+                max_uses: 0,
+                temporary: false,
+              },
+              {
+                headers: {
+                  Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN}`,
+                  'Content-Type': 'application/json',
+                },
+              }
+            );
+            const inviteCode = inviteResponse.data.code;
+            inviteUrl = `https://discord.gg/${inviteCode}`;
+
+            await prisma.inviteLink.create({
+              data: {
+                studentId: userId,
+                discordId,
+                inviteLink: inviteUrl,
+                inviteCode,
+                threadId,
+                createdAt: new Date(),
+                updatedAt: new Date(),
+              },
+            });
+            console.log('Created invite link:', { studentId: userId, inviteLink: inviteUrl, threadId });
+          } catch (error: any) {
+            console.error('Invite creation failed:', error.message);
+            return NextResponse.redirect(`${process.env.NEXT_PUBLIC_BASE_URL}/?error=invite_creation_failed`);
+          }
         } else {
           inviteUrl = existingInviteLink.inviteLink;
           await prisma.inviteLink.update({
@@ -481,18 +503,27 @@ export async function GET(request: NextRequest) {
         }
 
         if (threadId) {
-          await axios.post(`${process.env.DISCORD_BOT_API_URL}/send-thread-message`, {
-            threadId,
-            content: `New invite link for ${student!.discordUsername || 'User'}: ${inviteUrl}`,
-          });
-          console.log(`Sent invite link to thread ${threadId}`);
+          try {
+            await axios.post(`${process.env.DISCORD_BOT_API_URL}/send-thread-message`, {
+              threadId,
+              content: `New invite link for ${student!.discordUsername || 'User'}: ${inviteUrl}`,
+            });
+            console.log(`Sent invite link to thread ${threadId}`);
+          } catch (error: any) {
+            console.error('Failed to send message to thread:', error.message);
+            return NextResponse.redirect(`${process.env.NEXT_PUBLIC_BASE_URL}/?error=thread_message_failed`);
+          }
         } else {
           console.warn('No thread available, sending invite link to DM');
-          await axios.post(`${process.env.DISCORD_BOT_API_URL}/send-dm`, {
-            discordId,
-            content: `Your invite link: ${inviteUrl}`,
-          });
-          console.log(`Sent invite link to user ${discordId} via DM`);
+          try {
+            await axios.post(`${process.env.DISCORD_BOT_API_URL}/send-dm`, {
+              discordId,
+              content: `Your invite link: ${inviteUrl}`,
+            });
+            console.log(`Sent invite link to user ${discordId} via DM`);
+          } catch (error: any) {
+            console.error('Failed to send DM:', error.message);
+          }
         }
       } catch (error: any) {
         console.error('Invite creation failed:', error.message);
