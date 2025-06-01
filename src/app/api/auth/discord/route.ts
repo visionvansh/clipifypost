@@ -32,14 +32,14 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(redirectUrl);
     }
 
-    console.log('Received OAuth code:', code);
+    console.log('Received OAuth code:', { code });
 
-    const { userId: authUserId } = await getAuth(request);
-    if (!authUserId) {
-      console.error('No Clerk user ID');
-      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_BASE_URL}/?error=clerk_auth_failed`);
+    const { userId } = await getAuth(request);
+    if (!userId) {
+      console.error('No Clerk user ID found');
+      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_BASE_URL}/?error=invalid_session`);
     }
-    console.log('Authenticated user ID:', authUserId);
+    console.log('Authenticated user ID:', { userId });
 
     let tokenResponse;
     try {
@@ -63,7 +63,7 @@ export async function GET(request: NextRequest) {
         tokenRequestBody,
         { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
       );
-      console.log('Token exchange successful:', tokenResponse.data);
+      console.log('Token exchange successful:', { tokenResponse: tokenResponse.data });
     } catch (error: any) {
       console.error('Token exchange failed:', {
         message: error.message,
@@ -74,7 +74,7 @@ export async function GET(request: NextRequest) {
       if (error.response?.data?.error === 'invalid_grant') {
         const redirectUri = process.env.DISCORD_REDIRECT_URI!;
         const redirectUrl = `https://discord.com/api/oauth2/authorize?client_id=${process.env.DISCORD_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=identify%20email%20guilds.join`;
-        console.log('Invalid grant detected, redirecting to re-authenticate:', redirectUrl);
+        console.log('Invalid grant detected, redirecting to:', redirectUrl);
         return NextResponse.redirect(redirectUrl);
       }
 
@@ -92,9 +92,9 @@ export async function GET(request: NextRequest) {
       userResponse = await axios.get('https://discord.com/api/users/@me', {
         headers: { Authorization: `Bearer ${access_token}` },
       });
-      console.log('Fetched Discord user data:', userResponse.data);
+      console.log('Fetched Discord user data:', { userData: userResponse.data });
     } catch (error: any) {
-      console.error('User data fetch failed:', error.message);
+      console.error('User data fetch failed:', { error: error.message });
       return NextResponse.redirect(`${process.env.NEXT_PUBLIC_BASE_URL}/?error=user_fetch_failed`);
     }
 
@@ -111,7 +111,7 @@ export async function GET(request: NextRequest) {
     }
 
     let student = await prisma.student.findUnique({
-      where: { id: authUserId },
+      where: { id: userId },
     });
 
     const staleStudents = await prisma.student.findMany({
@@ -120,7 +120,7 @@ export async function GET(request: NextRequest) {
           { discordId: discordId },
           { discordUsername: discordUsername },
         ],
-        id: { not: authUserId },
+        id: { not: userId },
         signedUpToWebsite: false,
       },
     });
@@ -168,24 +168,25 @@ export async function GET(request: NextRequest) {
         // Create new student, include required fields to satisfy Prisma schema
         student = await prisma.student.create({
           data: {
-            id: authUserId,
-            username: `user_${authUserId}`, // Required field
-            email: `user_${authUserId}@example.com`, // Required field, fallback
+            id: userId,
+            username: `user_${userId}`, // Required field
+            email: `user_${userId}@example.com`, // Required field, fallback
             discordId,
             discordUsername,
             discordEmail: discordEmail || null,
-            signedUpToWebsite: false, // Default, keep as is
+            signedUpToWebsite: true, // Set to true on Discord connect
           },
         });
         console.log('Created new student:', JSON.stringify(student));
       } else {
-        // Update only Discord fields
+        // Update only Discord fields and signedUpToWebsite
         student = await prisma.student.update({
-          where: { id: authUserId },
+          where: { id: userId },
           data: {
             discordId,
             discordUsername,
             discordEmail: discordEmail || null,
+            signedUpToWebsite: true, // Set to true on Discord connect
           },
         });
         console.log('Updated student:', JSON.stringify(student));
@@ -387,7 +388,7 @@ export async function GET(request: NextRequest) {
       }
 
       let existingInviteLink = await prisma.inviteLink.findFirst({
-        where: { studentId: authUserId },
+        where: { studentId: userId },
       });
 
       let threadId = null;
@@ -399,7 +400,7 @@ export async function GET(request: NextRequest) {
             discordId,
           });
           threadId = threadResponse.data.threadId;
-          console.log(`Created private thread ${threadId} for ${discordUsername}`);
+          console.log(`Created thread ${threadId} for ${discordUsername}`);
         } catch (error: any) {
           console.error('Thread creation failed:', error.message);
           return NextResponse.redirect(`${process.env.NEXT_PUBLIC_BASE_URL}/?error=thread_creation_failed`);
@@ -420,7 +421,7 @@ export async function GET(request: NextRequest) {
               discordId,
             });
             threadId = threadResponse.data.threadId;
-            console.log(`Created new private thread ${threadId} for ${discordUsername}`);
+            console.log(`Created new thread ${threadId} for ${discordUsername}`);
           } catch (error: any) {
             console.error('Thread creation failed:', error.message);
             return NextResponse.redirect(`${process.env.NEXT_PUBLIC_BASE_URL}/?error=thread_creation_failed`);
@@ -431,7 +432,7 @@ export async function GET(request: NextRequest) {
       if (!existingInviteLink && inviterInviteLink) {
         await prisma.inviteLink.create({
           data: {
-            studentId: authUserId,
+            studentId: userId,
             discordId,
             inviteLink: inviterInviteLink.inviteLink,
             inviteCode: inviterInviteLink.inviteCode,
@@ -439,7 +440,7 @@ export async function GET(request: NextRequest) {
           },
         });
         inviteUrl = inviterInviteLink.inviteLink;
-        console.log('Copied inviter InviteLink to new student:', { studentId: authUserId, inviteLink: inviteUrl, threadId });
+        console.log('Copied invite link to new student:', { studentId: userId, inviteLink: inviteUrl, threadId });
       } else if (!existingInviteLink) {
         try {
           const inviteResponse = await axios.post(`${process.env.DISCORD_BOT_API_URL}/create-invite`, {
@@ -451,14 +452,14 @@ export async function GET(request: NextRequest) {
 
           await prisma.inviteLink.create({
             data: {
-              studentId: authUserId,
+              studentId: userId,
               discordId,
               inviteLink: inviteUrl,
               inviteCode,
               threadId,
             },
           });
-          console.log('Created invite link:', { studentId: authUserId, inviteLink: inviteUrl, threadId });
+          console.log('Created invite link:', { studentId: userId, inviteLink: inviteUrl, threadId });
         } catch (error: any) {
           console.error('Invite creation failed:', error.message);
           return NextResponse.redirect(`${process.env.NEXT_PUBLIC_BASE_URL}/?error=invite_creation_failed`);
@@ -473,7 +474,7 @@ export async function GET(request: NextRequest) {
             updatedAt: new Date(),
           },
         });
-        console.log('Updated existing invite link:', { studentId: authUserId, inviteLink: inviteUrl, threadId });
+        console.log('Updated existing invite link:', { studentId: userId, inviteLink: inviteUrl, threadId });
       }
 
       if (threadId) {
@@ -482,7 +483,7 @@ export async function GET(request: NextRequest) {
             threadId,
             content: `New invite link for ${student.discordUsername || 'User'}: ${inviteUrl}`,
           });
-          console.log(`Sent invite link to private thread ${threadId}`);
+          console.log(`Sent invite link to thread ${threadId}`);
         } catch (error: any) {
           console.error('Failed to send message to thread:', error.message);
           return NextResponse.redirect(`${process.env.NEXT_PUBLIC_BASE_URL}/?error=thread_message_failed`);
@@ -490,7 +491,7 @@ export async function GET(request: NextRequest) {
       } else {
         console.warn('No thread available, sending invite link to DM');
         try {
-          await axios.post(`${process.env.DISCORD_BOT_API_URL}/send-dm`, {
+          await axios.post(`${process.env.DISCORD_BOT_API_URL}/dm`, {
             discordId,
             content: `Your invite link: ${inviteUrl}`,
           });
@@ -514,7 +515,7 @@ export async function GET(request: NextRequest) {
         _sum: { totalViews: true },
       });
       const views = totalViews._sum.totalViews ?? 0;
-      console.log(`Syncing Invite ${invite.id} for ${student.id}, clerkUserId: ${student.id}, totalViews: ${views}`);
+      console.log(`Syncing invite ${invite.id} for ${student.id}, clerkUserId: ${student.id}, views: ${views}`);
 
       const newStatus = views >= 10000 ? 'approved' : 'pending';
       if (invite.status !== newStatus) {
@@ -546,15 +547,15 @@ export async function GET(request: NextRequest) {
               updatedAt: new Date(),
             },
           });
-          console.log('Updated InviteStats for inviter:', { studentId: invite.invitedId, count: expectedCount });
+          console.log('Updated InviteStats:', { studentId: invite.invitedId, count: expectedCount });
         });
       } else {
-        console.log(`No status update needed for Invite ${invite.id}, already ${newStatus}`);
+        console.log(`No status update needed for invite ${invite.id}, already ${newStatus}`);
       }
     }
 
     return NextResponse.redirect(`${process.env.NEXT_PUBLIC_BASE_URL}/users`);
-  } catch (error: unknown) {
+  } catch (error: any) {
     console.error('Error in Discord auth:', error instanceof Error ? error.stack : String(error));
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
