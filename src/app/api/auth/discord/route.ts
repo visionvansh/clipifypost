@@ -165,27 +165,27 @@ export async function GET(request: NextRequest) {
 
     try {
       if (!student) {
+        // Create new student, include required fields to satisfy Prisma schema
         student = await prisma.student.create({
           data: {
             id: authUserId,
-            username: `user_${authUserId}`,
-            email: discordEmail || `${discordId}@example.com`,
+            username: `user_${authUserId}`, // Required field
+            email: `user_${authUserId}@example.com`, // Required field, fallback
             discordId,
             discordUsername,
             discordEmail: discordEmail || null,
-            signedUpToWebsite: true,
+            signedUpToWebsite: false, // Default, keep as is
           },
         });
         console.log('Created new student:', JSON.stringify(student));
       } else {
+        // Update only Discord fields
         student = await prisma.student.update({
           where: { id: authUserId },
           data: {
             discordId,
             discordUsername,
             discordEmail: discordEmail || null,
-            email: discordEmail || student.email || `${discordId}@example.com`,
-            signedUpToWebsite: true,
           },
         });
         console.log('Updated student:', JSON.stringify(student));
