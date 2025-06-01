@@ -100,14 +100,15 @@ export async function GET(request: NextRequest) {
 
     const { id: discordId, username: discordUsername, email: discordEmail } = userResponse.data;
 
-    // Sync guildMemberAdd logic
-    let inviteLink = null;
-    const inviteCode = url.searchParams.get('invite_code');
-    if (inviteCode) {
-      inviteLink = await prisma.inviteLink.findFirst({
-        where: { inviteCode },
-        include: { student: true },
-      });
+    // Check for temp Student record
+    const tempStudent = await prisma.student.findFirst({
+      where: { discordId, signedUpToWebsite: false },
+      include: { receivedInvites: true },
+    });
+
+    let oldInvite = null;
+    if (tempStudent && tempStudent.receivedInvites.length > 0) {
+      oldInvite = tempStudent.receivedInvites[0];
     }
 
     let student = await prisma.student.findUnique({
@@ -129,7 +130,6 @@ export async function GET(request: NextRequest) {
     let preservedInvites: { inviterId: string; invitedUsername: string | null; status: string }[] = [];
     if (staleStudents.length > 0) {
       for (const staleStudent of staleStudents) {
-        // Verify discordUsername match
         if (staleStudent.discordUsername !== discordUsername) {
           console.log(`Username mismatch for stale student ${staleStudent.id}: ${staleStudent.discordUsername} != ${discordUsername}`);
           continue;
@@ -171,12 +171,11 @@ export async function GET(request: NextRequest) {
 
     try {
       if (!student) {
-        // Create new student
         student = await prisma.student.create({
           data: {
             id: userId,
-            username: `user_${userId}`,
-            email: `user_${userId}@example.com`,
+            username: discordUsername,
+            email: discordEmail || `user_${userId}@example.com`,
             discordId,
             discordUsername,
             discordEmail: discordEmail || null,
@@ -185,7 +184,6 @@ export async function GET(request: NextRequest) {
         });
         console.log('Created new student:', JSON.stringify(student));
       } else {
-        // Update only Discord fields and signedUpToWebsite
         student = await prisma.student.update({
           where: { id: userId },
           data: {
@@ -193,102 +191,103 @@ export async function GET(request: NextRequest) {
             discordUsername,
             discordEmail: discordEmail || null,
             signedUpToWebsite: true,
+            username: discordUsername,
+            email: discordEmail || student.email,
           },
         });
         console.log('Updated student:', JSON.stringify(student));
       }
 
-      // Handle invite link logic
-      if (inviteLink?.student) {
-        if (!student) {
-          console.error('Student is null after create/update');
-          return NextResponse.redirect(`${process.env.NEXT_PUBLIC_BASE_URL}/?error=student_not_found`);
-        }
-
-        const invitedStudent = await prisma.student.findFirst({
-          where: { discordId },
+      // Handle invite link logic (skipped for Discord join)
+      const inviteCode = url.searchParams.get('invite_code');
+      if (inviteCode) {
+        const inviteLink = await prisma.inviteLink.findFirst({
+          where: { inviteCode },
+          include: { student: true },
         });
 
-        if (!invitedStudent) {
-          console.error('No invited student found for discordId:', discordId);
-        } else {
-          const existingInvite = await prisma.invite.findFirst({
-            where: {
-              inviterId: inviteLink.studentId,
-              invitedId: invitedStudent.id,
-            },
+        if (inviteLink?.student) {
+          const invitedStudent = await prisma.student.findFirst({
+            where: { discordId },
           });
 
-          if (!existingInvite) {
-            await prisma.$transaction(async (tx) => {
-              if (!student) {
-                throw new Error('Student is null in transaction');
-              }
-
-              const totalViews = await tx.userStatsRecord.aggregate({
-                where: { clerkUserId: student.id },
-                _sum: { totalViews: true },
-              });
-              const views = totalViews._sum.totalViews ?? 0;
-              console.log(`Creating Invite for ${student.id}, clerkUserId: ${student.id}, totalViews: ${views}`);
-
-              const newStatus = views >= 10000 ? 'approved' : 'pending';
-              const newInvite = await tx.invite.create({
-                data: {
-                  inviterId: inviteLink.studentId,
-                  invitedId: student.id,
-                  invitedUsername: student.discordUsername || null,
-                  status: newStatus,
-                },
-              });
-              console.log('Created Invite:', {
-                inviteId: newInvite.id,
-                username: student.discordUsername,
-                totalViews: views,
-                status: newStatus,
-              });
-
-              const expectedCount = await tx.invite.count({
-                where: { inviterId: inviteLink.studentId },
-              });
-              await tx.inviteStats.upsert({
-                where: { studentId: inviteLink.studentId },
-                update: { inviteCount: expectedCount, updatedAt: new Date() },
-                create: {
-                  studentId: inviteLink.studentId,
-                  inviteCount: expectedCount,
-                  updatedAt: new Date(),
-                },
-              });
-              console.log('Updated InviteStats:', { studentId: inviteLink.studentId, count: expectedCount });
-
-              await tx.inviteTracking.create({
-                data: {
-                  inviterId: inviteLink.discordId || inviteLink.studentId,
-                  invitedId: discordId,
-                  invitedUsername: discordUsername,
-                },
-              });
-              console.log('Created InviteTracking:', { inviterId: inviteLink.studentId, invitedId: discordId });
+          if (!invitedStudent) {
+            console.error('No invited student found for discordId:', discordId);
+          } else {
+            const existingInvite = await prisma.invite.findFirst({
+              where: {
+                inviterId: inviteLink.studentId,
+                invitedId: invitedStudent.id,
+              },
             });
 
-            try {
-              const threadId = inviteLink.threadId;
-              if (threadId) {
-                await axios.post(`${process.env.DISCORD_BOT_API_URL}/send-thread-message`, {
-                  threadId,
-                  content: `New user ${discordUsername} joined using your invite link!`,
+            if (!existingInvite) {
+              await prisma.$transaction(async (tx) => {
+                const totalViews = await tx.userStatsRecord.aggregate({
+                  where: { clerkUserId: student!.id },
+                  _sum: { totalViews: true },
                 });
-                console.log(`Sent notification to thread ${threadId}`);
-              } else {
-                await axios.post(`${process.env.DISCORD_BOT_API_URL}/send-dm`, {
-                  discordId: inviteLink.discordId || inviteLink.studentId,
-                  content: `New user ${discordUsername} joined using your invite link!`,
+                const views = totalViews._sum.totalViews ?? 0;
+                console.log(`Creating Invite for ${student!.id}, totalViews: ${views}`);
+
+                const newStatus = views >= 10000 ? 'approved' : 'pending';
+                const newInvite = await tx.invite.create({
+                  data: {
+                    inviterId: inviteLink.studentId,
+                    invitedId: student!.id,
+                    invitedUsername: student!.discordUsername || null,
+                    status: newStatus,
+                  },
                 });
-                console.log(`Sent DM to ${inviteLink.discordId || inviteLink.studentId}`);
+                console.log('Created Invite:', {
+                  inviteId: newInvite.id,
+                  username: student!.discordUsername,
+                  totalViews: views,
+                  status: newStatus,
+                });
+
+                const expectedCount = await tx.invite.count({
+                  where: { inviterId: inviteLink.studentId },
+                });
+                await tx.inviteStats.upsert({
+                  where: { studentId: inviteLink.studentId },
+                  update: { inviteCount: expectedCount, updatedAt: new Date() },
+                  create: {
+                    studentId: inviteLink.studentId,
+                    inviteCount: expectedCount,
+                    updatedAt: new Date(),
+                  },
+                });
+                console.log('Updated InviteStats:', { studentId: inviteLink.studentId, count: expectedCount });
+
+                await tx.inviteTracking.create({
+                  data: {
+                    inviterId: inviteLink.discordId || inviteLink.studentId,
+                    invitedId: discordId,
+                    invitedUsername: discordUsername,
+                  },
+                });
+                console.log('Created InviteTracking:', { inviterId: inviteLink.studentId, invitedId: discordId });
+              });
+
+              try {
+                const threadId = inviteLink.threadId;
+                if (threadId) {
+                  await axios.post(`${process.env.DISCORD_BOT_API_URL}/send-thread-message`, {
+                    threadId,
+                    content: `New user ${discordUsername} joined using your invite link!`,
+                  });
+                  console.log(`Sent notification to thread ${threadId}`);
+                } else {
+                  await axios.post(`${process.env.DISCORD_BOT_API_URL}/send-dm`, {
+                    discordId: inviteLink.discordId || inviteLink.studentId,
+                    content: `New user ${discordUsername} joined using your invite link!`,
+                  });
+                  console.log(`Sent DM to ${inviteLink.discordId || inviteLink.studentId}`);
+                }
+              } catch (error) {
+                console.error('Notification failed:', error);
               }
-            } catch (error) {
-              console.error('Notification failed:', error);
             }
           }
         }
@@ -297,30 +296,26 @@ export async function GET(request: NextRequest) {
       if (preservedInvites.length > 0) {
         await prisma.$transaction(async (tx) => {
           for (const preservedInvite of preservedInvites) {
-            if (!student) {
-              throw new Error('Student is null in preserved invites transaction');
-            }
-
             const existingInvite = await tx.invite.findFirst({
               where: {
                 inviterId: preservedInvite.inviterId,
-                invitedId: student.id,
+                invitedId: student!.id,
               },
             });
 
             const totalViews = await tx.userStatsRecord.aggregate({
-              where: { clerkUserId: student.id },
+              where: { clerkUserId: student!.id },
               _sum: { totalViews: true },
             });
             const views = totalViews._sum.totalViews ?? 0;
-            console.log(`Processing preserved Invite for ${student.id}, clerkUserId: ${student.id}, totalViews: ${views}`);
+            console.log(`Processing preserved Invite for ${student!.id}, totalViews: ${views}`);
 
             const newStatus = views >= 10000 ? 'approved' : 'pending';
             if (!existingInvite) {
               const newInvite = await tx.invite.create({
                 data: {
                   inviterId: preservedInvite.inviterId,
-                  invitedId: student.id,
+                  invitedId: student!.id,
                   invitedUsername: preservedInvite.invitedUsername || discordUsername || null,
                   status: newStatus,
                 },
@@ -394,6 +389,16 @@ export async function GET(request: NextRequest) {
         });
       }
 
+      // Transfer old invite
+      if (oldInvite) {
+        await prisma.invite.update({
+          where: { id: oldInvite.id },
+          data: { invitedId: student!.id },
+        });
+        console.log('Transferred old invite to student:', student!.id);
+      }
+
+      // Generate InviteLink on website login
       let inviteUrl = null;
       try {
         const guildId = process.env.DISCORD_GUILD_ID;
@@ -445,27 +450,10 @@ export async function GET(request: NextRequest) {
           }
         }
 
-        if (!existingInviteLink && inviterInviteLink) {
-          await prisma.inviteLink.create({
-            data: {
-              studentId: userId,
-              discordId,
-              inviteLink: inviterInviteLink.inviteLink,
-              inviteCode: inviterInviteLink.inviteCode,
-              threadId,
-            },
-          });
-          inviteUrl = inviterInviteLink.inviteLink;
-          console.log('Copied invite link to new student:', { studentId: userId, inviteLink: inviteUrl, threadId });
-        } else if (!existingInviteLink) {
+        if (!existingInviteLink) {
           try {
-            const inviteResponse = await axios.post(`${process.env.DISCORD_BOT_API_URL}/create-invite`, {
-              channelId,
-            });
-            inviteUrl = inviteResponse.data.inviteUrl;
-            const inviteCode = inviteResponse.data.inviteCode;
-            console.log('Created new invite:', { url: inviteUrl, code: inviteCode });
-
+            const inviteCode = `clipify_${Math.random().toString(36).substring(2, 10)}`;
+            inviteUrl = `https://discord.gg/${inviteCode}`;
             await prisma.inviteLink.create({
               data: {
                 studentId: userId,
@@ -473,6 +461,8 @@ export async function GET(request: NextRequest) {
                 inviteLink: inviteUrl,
                 inviteCode,
                 threadId,
+                createdAt: new Date(),
+                updatedAt: new Date(),
               },
             });
             console.log('Created invite link:', { studentId: userId, inviteLink: inviteUrl, threadId });
@@ -497,7 +487,7 @@ export async function GET(request: NextRequest) {
           try {
             await axios.post(`${process.env.DISCORD_BOT_API_URL}/send-thread-message`, {
               threadId,
-              content: `New invite link for ${student?.discordUsername || 'User'}: ${inviteUrl}`,
+              content: `New invite link for ${student!.discordUsername || 'User'}: ${inviteUrl}`,
             });
             console.log(`Sent invite link to thread ${threadId}`);
           } catch (error: any) {
@@ -521,22 +511,24 @@ export async function GET(request: NextRequest) {
         return NextResponse.redirect(`${process.env.NEXT_PUBLIC_BASE_URL}/?error=invite_creation_failed`);
       }
 
-      if (!student) {
-        console.error('Student is null before invite sync');
-        return NextResponse.redirect(`${process.env.NEXT_PUBLIC_BASE_URL}/?error=student_not_found`);
+      // Delete temp Student record
+      if (tempStudent) {
+        await prisma.student.delete({ where: { id: tempStudent.id } });
+        console.log('Deleted temp student:', tempStudent.id);
       }
 
+      // Sync invites
       const invites = await prisma.invite.findMany({
-        where: { invitedId: student.id },
+        where: { invitedId: student!.id },
         select: { id: true, invitedId: true, invitedUsername: true, status: true },
       });
       for (const invite of invites) {
         const totalViews = await prisma.userStatsRecord.aggregate({
-          where: { clerkUserId: student.id },
+          where: { clerkUserId: student!.id },
           _sum: { totalViews: true },
         });
         const views = totalViews._sum.totalViews ?? 0;
-        console.log(`Syncing invite ${invite.id} for ${student.id}, clerkUserId: ${student.id}, views: ${views}`);
+        console.log(`Syncing invite ${invite.id} for ${student!.id}, views: ${views}`);
 
         const newStatus = views >= 10000 ? 'approved' : 'pending';
         if (invite.status !== newStatus) {
@@ -544,16 +536,15 @@ export async function GET(request: NextRequest) {
             await tx.invite.update({
               where: { id: invite.id },
               data: {
-                invitedUsername: student?.discordUsername || null,
+                invitedUsername: student!.discordUsername || null,
                 status: newStatus,
               },
             });
             console.log('Synced Invite:', {
               inviteId: invite.id,
-              username: student?.discordUsername,
+              username: student!.discordUsername,
               totalViews: views,
               status: newStatus,
-              previousStatus: invite.status,
             });
 
             const expectedCount = await tx.invite.count({
