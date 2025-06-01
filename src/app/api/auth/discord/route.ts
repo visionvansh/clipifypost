@@ -1,7 +1,296 @@
 import { NextResponse, NextRequest } from 'next/server';
 import axios from 'axios';
 import prisma from '@/lib/prisma';
+import { Client, GatewayIntentBits, TextChannel, REST } from 'discord.js';
 import { getAuth } from '@clerk/nextjs/server';
+
+let DiscordClient: Client | null = null;
+const inviteCache = new Map<string, number>();
+const processedMembers = new Set<string>();
+
+async function initializeDiscordClient() {
+  if (DiscordClient) {
+    console.log('Discord client already initialized');
+    return;
+  }
+
+  try {
+    DiscordClient = new Client({
+      intents: [
+        GatewayIntentBits.Guilds,
+        GatewayIntentBits.GuildMessages,
+        GatewayIntentBits.MessageContent,
+        GatewayIntentBits.GuildInvites,
+        GatewayIntentBits.GuildMembers,
+      ],
+    });
+
+    DiscordClient.on('error', (error) => {
+      console.error('Discord client error:', error);
+    });
+
+    DiscordClient.on('warn', (info) => {
+      console.warn('Discord client warning:', info);
+    });
+
+    if (!process.env.DISCORD_BOT_TOKEN) {
+      throw new Error('DISCORD_BOT_TOKEN is not set');
+    }
+
+    await DiscordClient.login(process.env.DISCORD_BOT_TOKEN);
+    console.log('Discord client initialized successfully');
+
+    const guildId = process.env.DISCORD_GUILD_ID;
+    if (!guildId) {
+      console.error('Missing DISCORD_GUILD_ID');
+      throw new Error('DISCORD_GUILD_ID not set');
+    }
+
+    const guild = await DiscordClient.guilds.fetch(guildId);
+    const invites = await guild.invites.fetch();
+    invites.forEach((invite) => {
+      inviteCache.set(invite.code, invite.uses || 0);
+    });
+    console.log('Cached invites:', Array.from(inviteCache.entries()));
+
+    DiscordClient.on('guildMemberAdd', async (member) => {
+      try {
+        console.log(`guildMemberAdd: ${member.id}, Username: ${member.user.username}, Tag: ${member.user.tag}`);
+
+        if (processedMembers.has(member.id)) {
+          console.log(`Member ${member.id} already processed, allowing rejoin`);
+          processedMembers.delete(member.id);
+        }
+        processedMembers.add(member.id);
+
+        const guild = member.guild;
+        const channelId = process.env.DISCORD_TEXT_CHANNEL_ID;
+        if (!channelId) {
+          console.error('Missing DISCORD_TEXT_CHANNEL_ID');
+          throw new Error('DISCORD_TEXT_CHANNEL_ID not set');
+        }
+
+        const channel = await guild.channels.fetch(channelId);
+        if (!channel || !channel.isTextBased() || !(channel instanceof TextChannel)) {
+          console.error('Invalid text channel:', channelId);
+          throw new Error(`Channel ${channelId} is not a valid text channel`);
+        }
+
+        const newInvites = await guild.invites.fetch();
+        let usedInvite = null;
+        for (const invite of newInvites.values()) {
+          const cachedUses = inviteCache.get(invite.code) || 0;
+          if ((invite.uses || 0) > cachedUses) {
+            usedInvite = invite;
+            inviteCache.set(invite.code, invite.uses || 0);
+            break;
+          }
+        }
+
+        if (!usedInvite) {
+          console.warn('No used invite detected for member:', member.id);
+          const inviteLinks = await prisma.inviteLink.findMany();
+          for (const inviteLink of inviteLinks) {
+            const invite = newInvites.find((i) => i.code === inviteLink.inviteCode);
+            if (invite) {
+              usedInvite = invite;
+              inviteCache.set(invite.code, invite.uses || 0);
+              console.log(`Fallback: Matched invite code ${invite.code} from InviteLink`);
+              break;
+            }
+          }
+        }
+
+        let welcomeMessage = `Welcome ${member.user.tag} to ${guild.name}!`;
+        let inviterUsername = 'Unknown';
+        let inviteLink = null;
+
+        if (usedInvite) {
+          console.log(`Used invite: ${usedInvite.code}, Uses: ${usedInvite.uses}`);
+          inviteLink = await prisma.inviteLink.findFirst({
+            where: { inviteCode: usedInvite.code },
+            include: { student: true },
+          });
+
+          if (inviteLink?.student) {
+            inviterUsername = inviteLink.student.discordUsername || 'Unknown';
+            if (inviteLink.threadId && DiscordClient) {
+              const thread = await guild.channels.fetch(inviteLink.threadId);
+              if (thread && thread.isThread()) {
+                await thread.send(`New user ${member.user.tag} joined using your invite link!`);
+                console.log(`Sent notification to private thread ${inviteLink.threadId} for ${inviterUsername}`);
+              } else {
+                console.warn(`Thread ${inviteLink.threadId} not found or invalid for ${inviterUsername}`);
+                const inviterUser = await DiscordClient.users.fetch(inviteLink.discordId || inviteLink.studentId);
+                await inviterUser.send(`New user ${member.user.tag} joined using your invite link!`);
+              }
+            } else {
+              console.warn(`No threadId found for invite code ${usedInvite.code}, sending to DM`);
+              if (DiscordClient) {
+                const inviterUser = await DiscordClient.users.fetch(inviteLink.discordId || inviteLink.studentId);
+                await inviterUser.send(`New user ${member.user.tag} joined using your invite link!`);
+              }
+            }
+            welcomeMessage += ` Invited by ${inviterUsername} using invite code ${usedInvite.code}.`;
+          } else {
+            console.warn('No inviter found for invite code:', usedInvite.code);
+            welcomeMessage += ` Joined via invite code ${usedInvite.code}.`;
+          }
+        } else {
+          console.error('No invite matched for member:', member.id);
+          welcomeMessage += ' No invite details available.';
+        }
+
+        await channel.send(welcomeMessage);
+        console.log(`Sent welcome message for ${member.user.tag}`);
+
+        const existingStudent = await prisma.student.findFirst({
+          where: { discordId: member.id },
+        });
+
+        if (existingStudent) {
+          if (!existingStudent.signedUpToWebsite) {
+            await prisma.student.update({
+              where: { id: existingStudent.id },
+              data: {
+                discordId: member.id,
+                discordUsername: member.user.username,
+                discordEmail: null,
+                email: existingStudent.email || `discord_${member.id}@example.com`,
+                signedUpToWebsite: false,
+              },
+            });
+            console.log('Updated existing student from server join:', existingStudent.id);
+          } else {
+            console.log('Skipping update, student already signed up:', existingStudent.id);
+          }
+        } else {
+          await prisma.student.create({
+            data: {
+              id: `discord_${member.id}`,
+              discordId: member.id,
+              discordUsername: member.user.username,
+              discordEmail: null,
+              username: `discord_${member.id}`,
+              email: `discord_${member.id}@example.com`,
+              signedUpToWebsite: false,
+            },
+          });
+          console.log('Created student from server join:', `discord_${member.id}`);
+        }
+
+        if (inviteLink?.student) {
+          const invitedStudent = await prisma.student.findFirst({
+            where: { discordId: member.id },
+          });
+
+          if (!invitedStudent) {
+            console.error('No invited student found for discordId:', member.id);
+            return;
+          }
+
+          const existingInvite = await prisma.invite.findFirst({
+            where: {
+              inviterId: inviteLink.studentId,
+              invitedId: invitedStudent.id,
+            },
+          });
+
+          if (!existingInvite) {
+            await prisma.$transaction(async (tx) => {
+              const totalViews = await tx.userStatsRecord.aggregate({
+                where: { clerkUserId: invitedStudent.id },
+                _sum: { totalViews: true },
+              });
+              const views = totalViews._sum.totalViews ?? 0;
+              console.log(`Creating Invite for ${invitedStudent.id}, clerkUserId: ${invitedStudent.id}, totalViews: ${views}`);
+
+              const newStatus = views >= 10000 ? 'approved' : 'pending';
+              const newInvite = await tx.invite.create({
+                data: {
+                  inviterId: inviteLink.studentId,
+                  invitedId: invitedStudent.id,
+                  invitedUsername: invitedStudent.discordUsername || null,
+                  status: newStatus,
+                },
+              });
+              console.log('Created Invite:', {
+                inviteId: newInvite.id,
+                username: invitedStudent.discordUsername,
+                totalViews: views,
+                status: newStatus,
+              });
+
+              const expectedCount = await tx.invite.count({
+                where: { inviterId: inviteLink.studentId },
+              });
+              await tx.inviteStats.upsert({
+                where: { studentId: inviteLink.studentId },
+                update: { inviteCount: expectedCount, updatedAt: new Date() },
+                create: {
+                  studentId: inviteLink.studentId,
+                  inviteCount: expectedCount,
+                  updatedAt: new Date(),
+                },
+              });
+              console.log('Updated InviteStats:', { studentId: inviteLink.studentId, count: expectedCount });
+
+              await tx.inviteTracking.create({
+                data: {
+                  inviterId: inviteLink.discordId || inviteLink.studentId,
+                  invitedId: member.id,
+                  invitedUsername: member.user.username,
+                },
+              });
+              console.log('Created InviteTracking:', { inviterId: inviteLink.studentId, invitedId: member.id });
+            });
+          } else {
+            const totalViews = await prisma.userStatsRecord.aggregate({
+              where: { clerkUserId: invitedStudent.id },
+              _sum: { totalViews: true },
+            });
+            const views = totalViews._sum.totalViews ?? 0;
+            console.log(`Updating Invite for ${invitedStudent.id}, clerkUserId: ${invitedStudent.id}, totalViews: ${views}`);
+
+            await prisma.$transaction(async (tx) => {
+              const newStatus = views >= 10000 ? 'approved' : 'pending';
+              await tx.invite.update({
+                where: { id: existingInvite.id },
+                data: {
+                  invitedUsername: invitedStudent.discordUsername || null,
+                  status: newStatus,
+                },
+              });
+              console.log('Updated Invite:', {
+                inviteId: existingInvite.id,
+                username: invitedStudent.discordUsername,
+                totalViews: views,
+                status: newStatus,
+                previousStatus: existingInvite.status,
+              });
+            });
+          }
+        } else {
+          console.warn('Skipping Invite creation: No valid inviteLink found');
+        }
+      } catch (error: unknown) {
+        console.error('Error in guildMemberAdd:', error instanceof Error ? error.stack : String(error));
+      }
+    });
+
+    // Handle THREAD_CREATE event explicitly
+    DiscordClient.on('threadCreate', async (thread) => {
+      try {
+        console.log(`Thread created: ${thread.id}, name: ${thread.name}`);
+      } catch (error: unknown) {
+        console.error('Error handling threadCreate event:', error instanceof Error ? error.stack : String(error));
+      }
+    });
+  } catch (error: unknown) {
+    console.error('Failed to initialize Discord client:', error instanceof Error ? error.stack : String(error));
+    DiscordClient = null;
+  }
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -10,11 +299,10 @@ export async function GET(request: NextRequest) {
       'DISCORD_CLIENT_ID',
       'DISCORD_CLIENT_SECRET',
       'DISCORD_REDIRECT_URI',
-      'DISCORD_BOT_API_URL',
+      'DISCORD_BOT_TOKEN',
       'DISCORD_GUILD_ID',
       'DISCORD_TEXT_CHANNEL_ID',
       'NEXT_PUBLIC_BASE_URL',
-      'DISCORD_BOT_TOKEN',
     ];
     for (const envVar of requiredEnvVars) {
       if (!process.env[envVar]) {
@@ -33,14 +321,14 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(redirectUrl);
     }
 
-    console.log('Received OAuth code:', { code });
+    console.log('Received OAuth code:', code);
 
-    const { userId } = await getAuth(request);
-    if (!userId) {
-      console.error('No Clerk user ID found');
-      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_BASE_URL}/?error=invalid_session`);
+    const { userId: authUserId } = await getAuth(request);
+    if (!authUserId) {
+      console.error('No Clerk user ID');
+      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_BASE_URL}/?error=clerk_auth_failed`);
     }
-    console.log('Authenticated user ID:', { userId });
+    console.log('Authenticated user ID:', authUserId);
 
     let tokenResponse;
     try {
@@ -64,26 +352,14 @@ export async function GET(request: NextRequest) {
         tokenRequestBody,
         { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
       );
-      console.log('Token exchange successful:', { tokenResponse: tokenResponse.data });
+      console.log('Token exchange successful:', tokenResponse.data);
     } catch (error: any) {
       console.error('Token exchange failed:', {
         message: error.message,
         response: error.response?.data,
         status: error.response?.status,
       });
-
-      if (error.response?.data?.error === 'invalid_grant') {
-        const redirectUri = process.env.DISCORD_REDIRECT_URI!;
-        const redirectUrl = `https://discord.com/api/oauth2/authorize?client_id=${process.env.DISCORD_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=identify%20email%20guilds.join`;
-        console.log('Invalid grant detected, redirecting to:', redirectUrl);
-        return NextResponse.redirect(redirectUrl);
-      }
-
-      return NextResponse.redirect(
-        `${process.env.NEXT_PUBLIC_BASE_URL}/?error=token_exchange_failed&details=${encodeURIComponent(
-          error.response?.data?.error_description || 'Unknown error'
-        )}`
-      );
+      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_BASE_URL}/?error=token_exchange_failed&details=${encodeURIComponent(error.response?.data?.error || 'Unknown error')}`);
     }
 
     const { access_token } = tokenResponse.data;
@@ -93,28 +369,21 @@ export async function GET(request: NextRequest) {
       userResponse = await axios.get('https://discord.com/api/users/@me', {
         headers: { Authorization: `Bearer ${access_token}` },
       });
-      console.log('Fetched Discord user data:', { userData: userResponse.data });
+      console.log('Fetched Discord user data:', userResponse.data);
     } catch (error: any) {
-      console.error('User data fetch failed:', { error: error.message });
+      console.error('User data fetch failed:', error.message);
       return NextResponse.redirect(`${process.env.NEXT_PUBLIC_BASE_URL}/?error=user_fetch_failed`);
     }
 
     const { id: discordId, username: discordUsername, email: discordEmail } = userResponse.data;
 
-    // Check for temp Student record
-    const tempStudent = await prisma.student.findFirst({
-      where: { discordId, signedUpToWebsite: false },
-      include: { receivedInvites: true },
-    });
-
-    let oldInvite = null;
-    if (tempStudent && tempStudent.receivedInvites.length > 0) {
-      oldInvite = tempStudent.receivedInvites[0];
-      console.log(`Found temp student ${tempStudent.id} with invite ${oldInvite.id}`);
+    if (!DiscordClient) {
+      await initializeDiscordClient();
+      console.log('Discord client status:', DiscordClient ? 'Initialized' : 'Failed');
     }
 
     let student = await prisma.student.findUnique({
-      where: { id: userId },
+      where: { id: authUserId },
     });
 
     const staleStudents = await prisma.student.findMany({
@@ -123,7 +392,7 @@ export async function GET(request: NextRequest) {
           { discordId: discordId },
           { discordUsername: discordUsername },
         ],
-        id: { not: userId },
+        id: { not: authUserId },
         signedUpToWebsite: false,
       },
     });
@@ -132,11 +401,6 @@ export async function GET(request: NextRequest) {
     let preservedInvites: { inviterId: string; invitedUsername: string | null; status: string }[] = [];
     if (staleStudents.length > 0) {
       for (const staleStudent of staleStudents) {
-        if (staleStudent.discordUsername !== discordUsername) {
-          console.log(`Username mismatch for stale student ${staleStudent.id}: ${staleStudent.discordUsername} != ${discordUsername}`);
-          continue;
-        }
-
         const invites = await prisma.invite.findMany({
           where: { invitedId: staleStudent.id },
           include: { inviter: { include: { inviteLinks: true } } },
@@ -175,9 +439,9 @@ export async function GET(request: NextRequest) {
       if (!student) {
         student = await prisma.student.create({
           data: {
-            id: userId,
-            username: discordUsername,
-            email: discordEmail || `user_${userId}@example.com`,
+            id: authUserId,
+            username: `user_${authUserId}`,
+            email: discordEmail || `${discordId}@example.com`,
             discordId,
             discordUsername,
             discordEmail: discordEmail || null,
@@ -187,306 +451,222 @@ export async function GET(request: NextRequest) {
         console.log('Created new student:', JSON.stringify(student));
       } else {
         student = await prisma.student.update({
-          where: { id: userId },
+          where: { id: authUserId },
           data: {
             discordId,
             discordUsername,
             discordEmail: discordEmail || null,
+            email: discordEmail || student.email || `${discordId}@example.com`,
             signedUpToWebsite: true,
-            username: discordUsername,
-            email: discordEmail || student.email,
           },
         });
         console.log('Updated student:', JSON.stringify(student));
       }
+    } catch (error: unknown) {
+      console.error('Prisma student create/update failed:', error instanceof Error ? error.stack : String(error));
+      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_BASE_URL}/?error=prisma_student_failed`);
+    }
 
-      // Handle invite link logic (skipped for Discord join)
-      const inviteCode = url.searchParams.get('invite_code');
-      if (inviteCode) {
-        const inviteLink = await prisma.inviteLink.findFirst({
-          where: { inviteCode },
-          include: { student: true },
-        });
-
-        if (inviteLink?.student) {
-          const invitedStudent = await prisma.student.findFirst({
-            where: { discordId },
+    if (preservedInvites.length > 0) {
+      await prisma.$transaction(async (tx) => {
+        for (const preservedInvite of preservedInvites) {
+          const existingInvite = await tx.invite.findFirst({
+            where: {
+              inviterId: preservedInvite.inviterId,
+              invitedId: student.id,
+            },
           });
 
-          if (!invitedStudent) {
-            console.error('No invited student found for discordId:', discordId);
-          } else {
-            const existingInvite = await prisma.invite.findFirst({
-              where: {
-                inviterId: inviteLink.studentId,
-                invitedId: invitedStudent.id,
-              },
-            });
+          const totalViews = await tx.userStatsRecord.aggregate({
+            where: { clerkUserId: student.id },
+            _sum: { totalViews: true },
+          });
+          const views = totalViews._sum.totalViews ?? 0;
+          console.log(`Processing preserved Invite for ${student.id}, clerkUserId: ${student.id}, totalViews: ${views}`);
 
-            if (!existingInvite) {
-              await prisma.$transaction(async (tx) => {
-                const totalViews = await tx.userStatsRecord.aggregate({
-                  where: { clerkUserId: student!.id },
-                  _sum: { totalViews: true },
-                });
-                const views = totalViews._sum.totalViews ?? 0;
-                console.log(`Creating Invite for ${student!.id}, totalViews: ${views}`);
-
-                const newStatus = views >= 10000 ? 'approved' : 'pending';
-                const newInvite = await tx.invite.create({
-                  data: {
-                    inviterId: inviteLink.studentId,
-                    invitedId: student!.id,
-                    invitedUsername: student!.discordUsername || null,
-                    status: newStatus,
-                  },
-                });
-                console.log('Created Invite:', {
-                  inviteId: newInvite.id,
-                  username: student!.discordUsername,
-                  totalViews: views,
-                  status: newStatus,
-                });
-
-                const expectedCount = await tx.invite.count({
-                  where: { inviterId: inviteLink.studentId },
-                });
-                await tx.inviteStats.upsert({
-                  where: { studentId: inviteLink.studentId },
-                  update: { inviteCount: expectedCount, updatedAt: new Date() },
-                  create: {
-                    studentId: inviteLink.studentId,
-                    inviteCount: expectedCount,
-                    updatedAt: new Date(),
-                  },
-                });
-                console.log('Updated InviteStats:', { studentId: inviteLink.studentId, count: expectedCount });
-
-                await tx.inviteTracking.create({
-                  data: {
-                    inviterId: inviteLink.discordId || inviteLink.studentId,
-                    invitedId: discordId,
-                    invitedUsername: discordUsername,
-                  },
-                });
-                console.log('Created InviteTracking:', { inviterId: inviteLink.studentId, invitedId: discordId });
-              });
-
-              try {
-                const threadId = inviteLink.threadId;
-                if (threadId) {
-                  await axios.post(`${process.env.DISCORD_BOT_API_URL}/send-thread-message`, {
-                    threadId,
-                    content: `New user ${discordUsername} joined using your invite link!`,
-                  });
-                  console.log(`Sent notification to thread ${threadId}`);
-                } else {
-                  await axios.post(`${process.env.DISCORD_BOT_API_URL}/send-dm`, {
-                    discordId: inviteLink.discordId || inviteLink.studentId,
-                    content: `New user ${discordUsername} joined using your invite link!`,
-                  });
-                  console.log(`Sent DM to ${inviteLink.discordId || inviteLink.studentId}`);
-                }
-              } catch (error) {
-                console.error('Notification failed:', error);
-              }
-            }
-          }
-        }
-      }
-
-      if (preservedInvites.length > 0) {
-        await prisma.$transaction(async (tx) => {
-          for (const preservedInvite of preservedInvites) {
-            const existingInvite = await tx.invite.findFirst({
-              where: {
+          const newStatus = views >= 10000 ? 'approved' : 'pending';
+          if (!existingInvite) {
+            const newInvite = await tx.invite.create({
+              data: {
                 inviterId: preservedInvite.inviterId,
-                invitedId: student!.id,
+                invitedId: student.id,
+                invitedUsername: preservedInvite.invitedUsername || discordUsername || null,
+                status: newStatus,
+              },
+            });
+            console.log('Recreated Invite for new student:', {
+              inviteId: newInvite.id,
+              username: preservedInvite.invitedUsername || discordUsername,
+              totalViews: views,
+              status: newStatus,
+              previousStatus: preservedInvite.status,
+            });
+
+            const existingTracking = await tx.inviteTracking.findFirst({
+              where: {
+                AND: [
+                  { inviterId: preservedInvite.inviterId },
+                  { invitedId: discordId },
+                ],
               },
             });
 
-            const totalViews = await tx.userStatsRecord.aggregate({
-              where: { clerkUserId: student!.id },
-              _sum: { totalViews: true },
-            });
-            const views = totalViews._sum.totalViews ?? 0;
-            console.log(`Processing preserved Invite for ${student!.id}, totalViews: ${views}`);
-
-            const newStatus = views >= 10000 ? 'approved' : 'pending';
-            if (!existingInvite) {
-              const newInvite = await tx.invite.create({
+            if (existingTracking) {
+              await tx.inviteTracking.update({
+                where: { id: existingTracking.id },
+                data: {
+                  invitedUsername: discordUsername,
+                },
+              });
+              console.log('Updated InviteTracking:', { inviterId: preservedInvite.inviterId, invitedId: discordId });
+            } else {
+              await tx.inviteTracking.create({
                 data: {
                   inviterId: preservedInvite.inviterId,
-                  invitedId: student!.id,
-                  invitedUsername: preservedInvite.invitedUsername || discordUsername || null,
-                  status: newStatus,
+                  invitedId: discordId,
+                  invitedUsername: discordUsername,
                 },
               });
-              console.log('Recreated Invite for new student:', {
-                inviteId: newInvite.id,
-                username: preservedInvite.invitedUsername || discordUsername,
-                totalViews: views,
-                status: newStatus,
-                previousStatus: preservedInvite.status,
-              });
-
-              const existingTracking = await tx.inviteTracking.findFirst({
-                where: {
-                  AND: [
-                    { inviterId: preservedInvite.inviterId },
-                    { invitedId: discordId },
-                  ],
-                },
-              });
-
-              if (existingTracking) {
-                await tx.inviteTracking.update({
-                  where: { id: existingTracking.id },
-                  data: {
-                    invitedUsername: discordUsername,
-                  },
-                });
-                console.log('Updated InviteTracking:', { inviterId: preservedInvite.inviterId, invitedId: discordId });
-              } else {
-                await tx.inviteTracking.create({
-                  data: {
-                    inviterId: preservedInvite.inviterId,
-                    invitedId: discordId,
-                    invitedUsername: discordUsername,
-                  },
-                });
-                console.log('Created InviteTracking:', { inviterId: preservedInvite.inviterId, invitedId: discordId });
-              }
-            } else {
-              await tx.invite.update({
-                where: { id: existingInvite.id },
-                data: {
-                  invitedUsername: preservedInvite.invitedUsername || discordUsername || null,
-                  status: newStatus,
-                },
-              });
-              console.log('Updated existing Invite:', {
-                inviteId: existingInvite.id,
-                username: preservedInvite.invitedUsername || discordUsername,
-                totalViews: views,
-                status: newStatus,
-                previousStatus: existingInvite.status,
-              });
+              console.log('Created InviteTracking:', { inviterId: preservedInvite.inviterId, invitedId: discordId });
             }
-
-            const expectedCount = await tx.invite.count({
-              where: { inviterId: preservedInvite.inviterId },
-            });
-            await tx.inviteStats.upsert({
-              where: { studentId: preservedInvite.inviterId },
-              update: { inviteCount: expectedCount, updatedAt: new Date() },
-              create: {
-                studentId: preservedInvite.inviterId,
-                inviteCount: expectedCount,
-                updatedAt: new Date(),
+          } else {
+            await tx.invite.update({
+              where: { id: existingInvite.id },
+              data: {
+                invitedUsername: preservedInvite.invitedUsername || discordUsername || null,
+                status: newStatus,
               },
             });
-            console.log('Updated InviteStats:', { studentId: preservedInvite.inviterId, count: expectedCount });
+            console.log('Updated existing Invite:', {
+              inviteId: existingInvite.id,
+              username: preservedInvite.invitedUsername || discordUsername,
+              totalViews: views,
+              status: newStatus,
+              previousStatus: existingInvite.status,
+            });
           }
-        });
+
+          const expectedCount = await tx.invite.count({
+            where: { inviterId: preservedInvite.inviterId },
+          });
+          await tx.inviteStats.upsert({
+            where: { studentId: preservedInvite.inviterId },
+            update: { inviteCount: expectedCount, updatedAt: new Date() },
+            create: {
+              studentId: preservedInvite.inviterId,
+              inviteCount: expectedCount,
+              updatedAt: new Date(),
+            },
+          });
+          console.log('Updated InviteStats:', { studentId: preservedInvite.inviterId, count: expectedCount });
+        }
+      });
+    }
+
+    let inviteUrl = null;
+    if (DiscordClient) {
+      const guildId = process.env.DISCORD_GUILD_ID;
+      const channelId = process.env.DISCORD_TEXT_CHANNEL_ID;
+      if (!guildId || !channelId) {
+        console.error('Missing DISCORD_GUILD_ID or DISCORD_TEXT_CHANNEL_ID');
+        return NextResponse.redirect(`${process.env.NEXT_PUBLIC_BASE_URL}/?error=discord_config_missing`);
       }
 
-      // Transfer old invite
-      if (oldInvite) {
-        await prisma.invite.update({
-          where: { id: oldInvite.id },
-          data: { invitedId: student!.id },
-        });
-        console.log('Transferred old invite to student:', student!.id);
-      }
-
-      // Generate InviteLink on website login
-      let inviteUrl: string | null = null;
       try {
-        const guildId = process.env.DISCORD_GUILD_ID;
-        const channelId = process.env.DISCORD_TEXT_CHANNEL_ID;
-        if (!guildId || !channelId) {
-          console.error('Missing DISCORD_GUILD_ID or DISCORD_TEXT_CHANNEL_ID');
-          return NextResponse.redirect(`${process.env.NEXT_PUBLIC_BASE_URL}/?error=discord_config_missing`);
+        const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_BOT_TOKEN!);
+        const guild = await DiscordClient.guilds.fetch(guildId);
+        const channel = await guild.channels.fetch(channelId);
+
+        if (!channel || !channel.isTextBased() || !(channel instanceof TextChannel)) {
+          console.error('Invalid text channel:', channelId);
+          return NextResponse.redirect(`${process.env.NEXT_PUBLIC_BASE_URL}/?error=invalid_text_channel`);
         }
 
         let existingInviteLink = await prisma.inviteLink.findFirst({
-          where: { studentId: userId },
+          where: { studentId: authUserId },
         });
 
-        let threadId = null;
+        let thread = null;
         if (!existingInviteLink || !existingInviteLink.threadId) {
+          const threadData = {
+            name: `referral-${discordUsername}-${discordId}`,
+            type: 12, // GuildPrivateThread
+            auto_archive_duration: 1440,
+            invitable: false,
+          };
           try {
-            const threadResponse = await axios.post(`${process.env.DISCORD_BOT_API_URL}/create-thread`, {
-              channelId,
-              name: `referral-${discordUsername}-${discordId}`,
-              discordId,
-            });
-            threadId = threadResponse.data.threadId;
-            console.log(`Created thread ${threadId} for ${discordUsername}`);
-          } catch (error: any) {
-            console.error('Thread creation failed:', error.message);
+            const threadResponse = await rest.post(`/channels/${channel.id}/threads`, { body: threadData }) as any;
+            thread = threadResponse;
+            console.log(`Created private thread ${thread.id} for ${discordUsername}`);
+
+            await rest.put(`/channels/${thread.id}/thread-members/${discordId}`);
+            console.log(`Added member ${discordId} to thread ${thread.id}`);
+          } catch (error: unknown) {
+            console.error('Thread creation failed:', error instanceof Error ? error.stack : String(error));
             return NextResponse.redirect(`${process.env.NEXT_PUBLIC_BASE_URL}/?error=thread_creation_failed`);
           }
-        } else {
-          threadId = existingInviteLink.threadId;
-          try {
-            await axios.post(`${process.env.DISCORD_BOT_API_URL}/send-thread-message`, {
-              threadId,
-              content: 'Thread verification',
-            });
-            console.log(`Verified thread ${threadId}`);
-          } catch (error: any) {
-            console.warn(`Thread ${threadId} not found, creating new one`);
+        } else if (existingInviteLink.threadId) {
+          const threadChannel = await guild.channels.fetch(existingInviteLink.threadId);
+          if (threadChannel && threadChannel.isThread()) {
+            thread = threadChannel;
+          } else {
+            console.warn(`Thread ${existingInviteLink.threadId} not found, creating new one`);
+            const threadData = {
+              name: `referral-${discordUsername}-${discordId}`,
+              type: 12, // GuildPrivateThread
+              auto_archive_duration: 1440,
+              invitable: false,
+            };
             try {
-              const threadResponse = await axios.post(`${process.env.DISCORD_BOT_API_URL}/create-thread`, {
-                channelId,
-                name: `referral-${discordUsername}-${discordId}`,
-                discordId,
-              });
-              threadId = threadResponse.data.threadId;
-              console.log(`Created new thread ${threadId} for ${discordUsername}`);
-            } catch (error: any) {
-              console.error('Thread creation failed:', error.message);
+              const threadResponse = await rest.post(`/channels/${channel.id}/threads`, { body: threadData }) as any;
+              thread = threadResponse;
+              console.log(`Created new private thread ${thread.id} for ${discordUsername}`);
+              await rest.put(`/channels/${thread.id}/thread-members/${discordId}`);
+              console.log(`Added member ${discordId} to new thread ${thread.id}`);
+            } catch (error: unknown) {
+              console.error('Thread creation failed:', error instanceof Error ? error.stack : String(error));
               return NextResponse.redirect(`${process.env.NEXT_PUBLIC_BASE_URL}/?error=thread_creation_failed`);
             }
           }
         }
 
-        if (!existingInviteLink) {
+        if (!existingInviteLink && inviterInviteLink) {
+          await prisma.inviteLink.create({
+            data: {
+              studentId: authUserId,
+              discordId,
+              inviteLink: inviterInviteLink.inviteLink,
+              inviteCode: inviterInviteLink.inviteCode,
+              threadId: thread?.id,
+            },
+          });
+          inviteUrl = inviterInviteLink.inviteLink;
+          console.log('Copied inviter InviteLink to new student:', { studentId: authUserId, inviteLink: inviteUrl, threadId: thread?.id });
+        } else if (!existingInviteLink) {
+          const inviteData = {
+            max_age: 0,
+            max_uses: 0,
+            temporary: false,
+            unique: true,
+          };
           try {
-            // Generate valid Discord invite
-            const inviteResponse = await axios.post(
-              `https://discord.com/api/v10/channels/${channelId}/invites`,
-              {
-                max_age: 0,
-                max_uses: 0,
-                temporary: false,
-              },
-              {
-                headers: {
-                  Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN}`,
-                  'Content-Type': 'application/json',
-                },
-              }
-            );
-            const inviteCode = inviteResponse.data.code;
-            inviteUrl = `https://discord.gg/${inviteCode}`;
+            const inviteResponse = await rest.post(`/channels/${channel.id}/invites`, { body: inviteData }) as any;
+            inviteUrl = `https://discord.gg/${inviteResponse.code}`;
+            const inviteCode = inviteResponse.code;
+            console.log('Created new invite:', { url: inviteUrl, code: inviteCode });
 
             await prisma.inviteLink.create({
               data: {
-                studentId: userId,
+                studentId: authUserId,
                 discordId,
                 inviteLink: inviteUrl,
                 inviteCode,
-                threadId,
-                createdAt: new Date(),
-                updatedAt: new Date(),
+                threadId: thread?.id,
               },
             });
-            console.log('Created invite link:', { studentId: userId, inviteLink: inviteUrl, threadId });
-          } catch (error: any) {
-            console.error('Invite creation failed:', error.message);
+            console.log('Created invite link:', { studentId: authUserId, inviteLink: inviteUrl, threadId: thread?.id });
+          } catch (error: unknown) {
+            console.error('Invite creation failed:', error instanceof Error ? error.stack : String(error));
             return NextResponse.redirect(`${process.env.NEXT_PUBLIC_BASE_URL}/?error=invite_creation_failed`);
           }
         } else {
@@ -495,106 +675,95 @@ export async function GET(request: NextRequest) {
             where: { id: existingInviteLink.id },
             data: {
               discordId,
-              threadId: threadId || existingInviteLink.threadId,
+              threadId: thread?.id || existingInviteLink.threadId,
               updatedAt: new Date(),
             },
           });
-          console.log('Updated existing invite link:', { studentId: userId, inviteLink: inviteUrl, threadId });
+          console.log('Updated existing invite link:', { studentId: authUserId, inviteLink: inviteUrl, threadId: thread?.id });
         }
 
-        if (threadId) {
+        if (thread) {
           try {
-            await axios.post(`${process.env.DISCORD_BOT_API_URL}/send-thread-message`, {
-              threadId,
-              content: `New invite link for ${student!.discordUsername || 'User'}: ${inviteUrl}`,
+            await rest.post(`/channels/${thread.id}/messages`, {
+              body: {
+                content: `New invite link for ${student.discordUsername || 'User'}: ${inviteUrl}`,
+              },
             });
-            console.log(`Sent invite link to thread ${threadId}`);
-          } catch (error: any) {
-            console.error('Failed to send message to thread:', error.message);
+            console.log(`Sent invite link to private thread ${thread.id}`);
+          } catch (error: unknown) {
+            console.error('Failed to send message to thread:', error instanceof Error ? error.stack : String(error));
             return NextResponse.redirect(`${process.env.NEXT_PUBLIC_BASE_URL}/?error=thread_message_failed`);
           }
         } else {
           console.warn('No thread available, sending invite link to DM');
-          try {
-            await axios.post(`${process.env.DISCORD_BOT_API_URL}/send-dm`, {
-              discordId,
-              content: `Your invite link: ${inviteUrl}`,
-            });
-            console.log(`Sent invite link to user ${discordId} via DM`);
-          } catch (error: any) {
-            console.error('Failed to send DM:', error.message);
+          if (DiscordClient) {
+            try {
+              const user = await DiscordClient.users.fetch(discordId);
+              await user.send(`Your invite link: ${inviteUrl}`);
+              console.log(`Sent invite link to user ${discordId} via DM`);
+            } catch (error: unknown) {
+              console.error('Failed to send DM:', error instanceof Error ? error.stack : String(error));
+            }
           }
         }
-      } catch (error: any) {
-        console.error('Invite creation failed:', error.message);
+      } catch (error: unknown) {
+        console.error('Invite creation failed:', error instanceof Error ? error.stack : String(error));
         return NextResponse.redirect(`${process.env.NEXT_PUBLIC_BASE_URL}/?error=invite_creation_failed`);
       }
-
-      // Delete temp Student record
-      if (tempStudent) {
-        await prisma.student.delete({
-          where: { id: tempStudent.id },
-        });
-        console.log('Deleted temp student:', tempStudent.id);
-      }
-
-      // Sync invites
-      const invites = await prisma.invite.findMany({
-        where: { invitedId: student!.id },
-        select: { id: true, invitedId: true, invitedUsername: true, status: true },
-      });
-      console.log(`Found ${invites.length} invites for ${student!.id}`);
-      for (const invite of invites) {
-        const totalViews = await prisma.userStatsRecord.aggregate({
-          where: { clerkUserId: student!.id },
-          _sum: { totalViews: true },
-        });
-        const views = totalViews._sum.totalViews ?? 0;
-        console.log(`Syncing invite ${invite.id} for ${student!.id}, views: ${views}`);
-
-        const newStatus = views >= 10000 ? 'approved' : 'pending';
-        if (invite.status !== newStatus) {
-          await prisma.$transaction(async (tx) => {
-            await tx.invite.update({
-              where: { id: invite.id },
-              data: {
-                invitedUsername: student!.discordUsername || null,
-                status: newStatus,
-              },
-            });
-            console.log('Synced Invite:', {
-              inviteId: invite.id,
-              username: student!.discordUsername,
-              totalViews: views,
-              status: newStatus,
-            });
-
-            const expectedCount = await tx.invite.count({
-              where: { inviterId: invite.invitedId },
-            });
-            await tx.inviteStats.upsert({
-              where: { studentId: invite.invitedId },
-              update: { inviteCount: expectedCount, updatedAt: new Date() },
-              create: {
-                studentId: invite.invitedId,
-                inviteCount: expectedCount,
-                updatedAt: new Date(),
-              },
-            });
-            console.log('Updated InviteStats:', { studentId: invite.invitedId, count: expectedCount });
-          });
-        } else {
-          console.log(`No status update needed for invite ${invite.id}, already ${newStatus}`);
-        }
-      }
-
-      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_BASE_URL}/users`);
-    } catch (error: any) {
-      console.error('Error in Discord auth:', error.message);
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-  } catch (error: any) {
-    console.error('Outer error in Discord auth:', error.message);
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+
+    const invites = await prisma.invite.findMany({
+      where: { invitedId: student.id },
+      select: { id: true, invitedId: true, invitedUsername: true, status: true },
+    });
+    for (const invite of invites) {
+      const totalViews = await prisma.userStatsRecord.aggregate({
+        where: { clerkUserId: student.id },
+        _sum: { totalViews: true },
+      });
+      const views = totalViews._sum.totalViews ?? 0;
+      console.log(`Syncing Invite ${invite.id} for ${student.id}, clerkUserId: ${student.id}, totalViews: ${views}`);
+
+      const newStatus = views >= 10000 ? 'approved' : 'pending';
+      if (invite.status !== newStatus) {
+        await prisma.$transaction(async (tx) => {
+          await tx.invite.update({
+            where: { id: invite.id },
+            data: {
+              invitedUsername: student.discordUsername || null,
+              status: newStatus,
+            },
+          });
+          console.log('Synced Invite:', {
+            inviteId: invite.id,
+            username: student.discordUsername,
+            totalViews: views,
+            status: newStatus,
+            previousStatus: invite.status,
+          });
+
+          const expectedCount = await tx.invite.count({
+            where: { inviterId: invite.invitedId },
+          });
+          await tx.inviteStats.upsert({
+            where: { studentId: invite.invitedId },
+            update: { inviteCount: expectedCount, updatedAt: new Date() },
+            create: {
+              studentId: invite.invitedId,
+              inviteCount: expectedCount,
+              updatedAt: new Date(),
+            },
+          });
+          console.log('Updated InviteStats for inviter:', { studentId: invite.invitedId, count: expectedCount });
+        });
+      } else {
+        console.log(`No status update needed for Invite ${invite.id}, already ${newStatus}`);
+      }
+    }
+
+    return NextResponse.redirect(`${process.env.NEXT_PUBLIC_BASE_URL}/users`);
+  } catch (error: unknown) {
+    console.error('Error in Discord auth:', error instanceof Error ? error.stack : String(error));
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 }
