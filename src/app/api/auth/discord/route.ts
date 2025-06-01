@@ -109,6 +109,7 @@ export async function GET(request: NextRequest) {
     let oldInvite = null;
     if (tempStudent && tempStudent.receivedInvites.length > 0) {
       oldInvite = tempStudent.receivedInvites[0];
+      console.log(`Found temp student ${tempStudent.id} with invite ${oldInvite.id}`);
     }
 
     let student = await prisma.student.findUnique({
@@ -399,7 +400,7 @@ export async function GET(request: NextRequest) {
       }
 
       // Generate InviteLink on website login
-      let inviteUrl = null;
+      let inviteUrl: string | null = null;
       try {
         const guildId = process.env.DISCORD_GUILD_ID;
         const channelId = process.env.DISCORD_TEXT_CHANNEL_ID;
@@ -433,6 +434,7 @@ export async function GET(request: NextRequest) {
               threadId,
               content: 'Thread verification',
             });
+            console.log(`Verified thread ${threadId}`);
           } catch (error: any) {
             console.warn(`Thread ${threadId} not found, creating new one`);
             try {
@@ -451,25 +453,20 @@ export async function GET(request: NextRequest) {
         }
 
         if (!existingInviteLink) {
-          try {
-            const inviteCode = `clipify_${Math.random().toString(36).substring(2, 10)}`;
-            inviteUrl = `https://discord.gg/${inviteCode}`;
-            await prisma.inviteLink.create({
-              data: {
-                studentId: userId,
-                discordId,
-                inviteLink: inviteUrl,
-                inviteCode,
-                threadId,
-                createdAt: new Date(),
-                updatedAt: new Date(),
-              },
-            });
-            console.log('Created invite link:', { studentId: userId, inviteLink: inviteUrl, threadId });
-          } catch (error: any) {
-            console.error('Invite creation failed:', error.message);
-            return NextResponse.redirect(`${process.env.NEXT_PUBLIC_BASE_URL}/?error=invite_creation_failed`);
-          }
+          const inviteCode = `clipify_${Math.random().toString(36).substring(2, 10)}`;
+          inviteUrl = `https://discord.gg/${inviteCode}`;
+          await prisma.inviteLink.create({
+            data: {
+              studentId: userId,
+              discordId,
+              inviteLink: inviteUrl,
+              inviteCode,
+              threadId,
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            },
+          });
+          console.log('Created invite link:', { studentId: userId, inviteLink: inviteUrl, threadId });
         } else {
           inviteUrl = existingInviteLink.inviteLink;
           await prisma.inviteLink.update({
@@ -484,36 +481,29 @@ export async function GET(request: NextRequest) {
         }
 
         if (threadId) {
-          try {
-            await axios.post(`${process.env.DISCORD_BOT_API_URL}/send-thread-message`, {
-              threadId,
-              content: `New invite link for ${student!.discordUsername || 'User'}: ${inviteUrl}`,
-            });
-            console.log(`Sent invite link to thread ${threadId}`);
-          } catch (error: any) {
-            console.error('Failed to send message to thread:', error.message);
-            return NextResponse.redirect(`${process.env.NEXT_PUBLIC_BASE_URL}/?error=thread_message_failed`);
-          }
+          await axios.post(`${process.env.DISCORD_BOT_API_URL}/send-thread-message`, {
+            threadId,
+            content: `New invite link for ${student!.discordUsername || 'User'}: ${inviteUrl}`,
+          });
+          console.log(`Sent invite link to thread ${threadId}`);
         } else {
           console.warn('No thread available, sending invite link to DM');
-          try {
-            await axios.post(`${process.env.DISCORD_BOT_API_URL}/send-dm`, {
-              discordId,
-              content: `Your invite link: ${inviteUrl}`,
-            });
-            console.log(`Sent invite link to user ${discordId} via DM`);
-          } catch (error: any) {
-            console.error('Failed to send DM:', error.message);
-          }
+          await axios.post(`${process.env.DISCORD_BOT_API_URL}/send-dm`, {
+            discordId,
+            content: `Your invite link: ${inviteUrl}`,
+          });
+          console.log(`Sent invite link to user ${discordId} via DM`);
         }
-      } catch (error: unknown) {
-        console.error('Invite creation failed:', error instanceof Error ? error.stack : String(error));
+      } catch (error: any) {
+        console.error('Invite creation failed:', error.message);
         return NextResponse.redirect(`${process.env.NEXT_PUBLIC_BASE_URL}/?error=invite_creation_failed`);
       }
 
       // Delete temp Student record
       if (tempStudent) {
-        await prisma.student.delete({ where: { id: tempStudent.id } });
+        await prisma.student.delete({
+          where: { id: tempStudent.id },
+        });
         console.log('Deleted temp student:', tempStudent.id);
       }
 
@@ -522,6 +512,7 @@ export async function GET(request: NextRequest) {
         where: { invitedId: student!.id },
         select: { id: true, invitedId: true, invitedUsername: true, status: true },
       });
+      console.log(`Found ${invites.length} invites for ${student!.id}`);
       for (const invite of invites) {
         const totalViews = await prisma.userStatsRecord.aggregate({
           where: { clerkUserId: student!.id },
@@ -568,11 +559,11 @@ export async function GET(request: NextRequest) {
 
       return NextResponse.redirect(`${process.env.NEXT_PUBLIC_BASE_URL}/users`);
     } catch (error: any) {
-      console.error('Error in Discord auth:', error instanceof Error ? error.stack : String(error));
+      console.error('Error in Discord auth:', error.message);
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
   } catch (error: any) {
-    console.error('Outer error in Discord auth:', error instanceof Error ? error.stack : String(error));
+    console.error('Outer error in Discord auth:', error.message);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }
