@@ -92,7 +92,6 @@ const PendingUsersCard = ({ pendingUsers }: PendingUsersCardProps) => {
                 <th className="px-2 sm:px-4 py-2 text-yellow-500 animate-glow glow-text truncate min-w-[150px] text-xs sm:text-sm">Discord Username</th>
                 <th className="px-2 sm:px-4 py-2 text-yellow-500 animate-glow glow-text truncate min-w-[150px] text-xs sm:text-sm">Username</th>
                 <th className="px-2 sm:px-4 py-2 text-yellow-500 animate-glow glow-text text-center min-w-[100px] text-xs sm:text-sm">Signed Up</th>
-                <th className="px-2 sm:px-4 py-2 text-yellow-500 animate-glow glow-text text-center min-w-[100px] text-xs sm:text-sm">Approved</th>
                 <th className="px-2 sm:px-4 py-2 text-yellow-500 animate-glow glow-text text-right min-w-[100px] text-xs sm:text-sm">Views</th>
               </tr>
             </thead>
@@ -111,26 +110,15 @@ const PendingUsersCard = ({ pendingUsers }: PendingUsersCardProps) => {
                       <FaTimes className="text-red-500 glow-icon-red" />
                     )}
                   </td>
-                  <td className="px-2 sm:px-4 py-2 flex justify-center">
-                    {user.isApproved ? (
-                      <FaCheck className="text-green-500 glow-icon-green" />
-                    ) : (
-                      <FaTimes className="text-red-500 glow-icon-red" />
-                    )}
-                  </td>
-                  <td className="px-2 sm:px-4 py-2 text-white text-right">
-                    {user.isApproved ? (
-                      <FaCheck className="text-green-500 glow-icon-green" />
-                    ) : (
-                      user.totalViews
-                    )}
-                  </td>
+                  <td className="px-2 sm:px-4 py-2 text-white text-right">{user.totalViews}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
       )}
+
+     
     </div>
   );
 };
