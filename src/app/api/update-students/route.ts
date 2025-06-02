@@ -66,6 +66,21 @@ export async function POST(request: NextRequest) {
               },
             });
             console.log('Created new invite:', { inviterId: inviter.id, invitedId: student.id });
+
+            // NEW: Update InviteStats for inviter
+            const inviteCount = await prisma.invite.count({
+              where: { inviterId: inviter.id },
+            });
+            await prisma.inviteStats.upsert({
+              where: { studentId: inviter.id },
+              update: { inviteCount, updatedAt: new Date() },
+              create: {
+                studentId: inviter.id,
+                inviteCount,
+                updatedAt: new Date(),
+              },
+            });
+            console.log('Updated InviteStats:', { studentId: inviter.id, inviteCount });
           }
         }
       }
