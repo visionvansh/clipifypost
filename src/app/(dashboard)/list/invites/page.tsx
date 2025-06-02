@@ -266,7 +266,7 @@ const Invites = async ({ searchParams }: { searchParams: Promise<{ userId?: stri
           <InvitedToServerCard inviteCount={dashboardData.inviteCount} />
           <LoggedInWebsiteCard loggedInWebsite={dashboardData.loggedInWebsite} />
           <PendingUsersCard pendingUsers={dashboardData.pendingUsers} />
-          <ApprovedReferredCard approvedUsers={dashboardData.approvedUsers} />
+           <ApprovedReferredCard approvedUsers={dashboardData.approvedUsers.length} />
           <TotalEarningsCard earnings={dashboardData.earnings} />
         </div>
 
