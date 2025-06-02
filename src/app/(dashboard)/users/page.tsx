@@ -297,7 +297,7 @@ export default async function Users({ searchParams }: { searchParams: Promise<{ 
             <LoggedInWebsiteCard loggedInWebsite={dashboardData.loggedInWebsite} />
           </div>
           <div>
-            <ApprovedReferredCard approvedUsers={dashboardData.approvedUsers} />
+            <ApprovedReferredCard approvedUsers={dashboardData.approvedUsers.length} />
           </div>
           <div>
             <TotalEarningsCard earnings={dashboardData.earnings} />
