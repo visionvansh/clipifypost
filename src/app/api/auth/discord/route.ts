@@ -155,7 +155,7 @@ export async function GET(request: NextRequest) {
             discordId,
             discordUsername,
             discordEmail: discordEmail || null,
-            email: discordEmail || student.email || `${discordId}@example.com`,
+            email:  student.email || discordEmail || `${discordId}@example.com`,
             signedUpToWebsite: true,
           },
         });
