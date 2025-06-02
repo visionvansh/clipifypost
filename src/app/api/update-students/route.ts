@@ -4,9 +4,11 @@ import prisma from '@/lib/prisma';
 export async function POST(request: NextRequest) {
   try {
     const { discordId, username, inviteCode } = await request.json();
+    console.log('Received request at /api/update-students:', { discordId, username, inviteCode });
 
     const apiKey = request.headers.get('Authorization')?.split('Bearer ')[1];
     if (apiKey !== process.env.API_KEY) {
+      console.error('Unauthorized access attempt');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -18,13 +20,14 @@ export async function POST(request: NextRequest) {
       student = await prisma.student.create({
         data: {
           id: `discord_${discordId}`,
-          username: username || `discord_${discordId}`,  // Added username field
+          username: username || `discord_${discordId}`,
           discordId,
           discordUsername: username,
           email: `discord_${discordId}@example.com`,
           signedUpToWebsite: false,
         },
       });
+      console.log('Created new student:', student);
     } else {
       await prisma.student.update({
         where: { id: student.id },
@@ -32,6 +35,7 @@ export async function POST(request: NextRequest) {
           discordUsername: username,
         },
       });
+      console.log('Updated student:', student);
     }
 
     if (inviteCode) {
@@ -61,6 +65,7 @@ export async function POST(request: NextRequest) {
                 status: 'pending',
               },
             });
+            console.log('Created new invite:', { inviterId: inviter.id, invitedId: student.id });
           }
         }
       }
