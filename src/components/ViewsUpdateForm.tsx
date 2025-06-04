@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { motion } from "framer-motion";
 
 interface ViewsUpdateFormProps {
   reelId: number;
@@ -39,23 +40,25 @@ const ViewsUpdateForm: React.FC<ViewsUpdateFormProps> = ({ reelId, initialViews 
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-2">
+    <div onSubmit={handleSubmit} className="space-y-2">
       <input
         type="number"
         value={views}
         onChange={(e) => setViews(e.target.value)}
-        className="w-24 p-2 rounded-lg bg-gray-800/50 border border-gray-600 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+        className="w-24 p-2 rounded-lg bg-black border border-gray-600 text-white focus:outline-none focus:ring-2 focus:ring-yellow-500 glow-input"
         min="0"
         disabled={loading}
       />
-      <button
-        type="submit"
-        className="py-1 px-3 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-500 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+      <motion.button
+        whileHover={{ scale: 1.05 }}
+        whileTap={{ scale: 0.95 }}
+        onClick={handleSubmit}
+        className="py-1 px-3 rounded-lg bg-yellow-500 text-black font-semibold hover:bg-yellow-400 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed glow-button"
         disabled={loading}
       >
         {loading ? "Updating..." : "Update"}
-      </button>
-    </form>
+      </motion.button>
+    </div>
   );
 };
 

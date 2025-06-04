@@ -3,6 +3,7 @@
 import { useState, useRef } from "react";
 import { FiUpload, FiLink } from "react-icons/fi";
 import { useAuth } from "@clerk/nextjs";
+import { motion } from "framer-motion";
 
 interface UploadFormProps {
   brandId: number;
@@ -162,7 +163,6 @@ const UploadForm: React.FC<UploadFormProps> = ({ brandId, onClose }) => {
       return;
     }
 
-    // Check for folder links
     const folderRegex = /drive\.google\.com\/drive\/folders\//;
     if (folderRegex.test(driveLink)) {
       setError("Folder links are not allowed. Please provide a direct video file link (e.g., https://drive.google.com/file/d/...).");
@@ -170,7 +170,6 @@ const UploadForm: React.FC<UploadFormProps> = ({ brandId, onClose }) => {
       return;
     }
 
-    // Validate video file link
     const driveLinkRegex = /^https:\/\/(drive\.google\.com\/(file\/d\/|open\?id=)|docs\.google\.com\/.*\/d\/)[a-zA-Z0-9_-]+(\/(view|preview|edit|embed)?)?(\?.*)?$/;
     if (!driveLinkRegex.test(driveLink)) {
       setError("Invalid Google Drive video link. Use a direct video file link like https://drive.google.com/file/d/...");
@@ -284,28 +283,30 @@ const UploadForm: React.FC<UploadFormProps> = ({ brandId, onClose }) => {
   };
 
   return (
-    <div className="backdrop-blur-md bg-black/40 p-6 rounded-xl shadow-2xl shadow-black/60 border border-gray-700/50 transform transition-all hover:scale-[1.02] perspective-1000">
+    <>
       <div className="flex mb-4 border-b border-gray-600">
-        <button
+        <motion.button
+          whileHover={{ scale: 1.05 }}
           className={`flex-1 py-2 px-4 text-sm font-medium transition-all duration-300 ${
             activeTab === "file"
-              ? "text-white border-b-2 border-blue-500"
+              ? "text-white border-b-2 border-yellow-500"
               : "text-gray-400 hover:text-gray-200"
           }`}
           onClick={() => setActiveTab("file")}
         >
           Upload File
-        </button>
-        <button
+        </motion.button>
+        <motion.button
+          whileHover={{ scale: 1.05 }}
           className={`flex-1 py-2 px-4 text-sm font-medium transition-all duration-300 ${
             activeTab === "link"
-              ? "text-white border-b-2 border-blue-500"
+              ? "text-white border-b-2 border-yellow-500"
               : "text-gray-400 hover:text-gray-200"
           }`}
           onClick={() => setActiveTab("link")}
         >
           Add Drive Link
-        </button>
+        </motion.button>
       </div>
 
       {activeTab === "file" ? (
@@ -324,7 +325,7 @@ const UploadForm: React.FC<UploadFormProps> = ({ brandId, onClose }) => {
               Upload Reel (Max 600MB, MP4/WebM/MPEG)
             </label>
             <div
-              className="relative flex items-center justify-center p-4 rounded-lg bg-gray-800/50 border border-gray-600 hover:bg-gray-700/50 transition-all duration-300 cursor-pointer group"
+              className="relative flex items-center justify-center p-4 rounded-lg bg-black border border-gray-600 hover:bg-gray-700/50 transition-all duration-300 cursor-pointer group glow-input"
               onClick={() => fileInputRef.current?.click()}
             >
               <input
@@ -338,7 +339,13 @@ const UploadForm: React.FC<UploadFormProps> = ({ brandId, onClose }) => {
                 required
                 disabled={uploading}
               />
-              <FiUpload className="text-blue-400 text-2xl mr-2 group-hover:scale-110 transition-transform" />
+              <motion.div
+                animate={{ scale: [1, 1.1, 1] }}
+                transition={{ duration: 2, repeat: Infinity }}
+                className="icon-glow"
+              >
+                <FiUpload className="text-yellow-400 text-2xl mr-2" />
+              </motion.div>
               <span className="text-white">{fileName || "Choose a video file"}</span>
             </div>
           </div>
@@ -346,27 +353,31 @@ const UploadForm: React.FC<UploadFormProps> = ({ brandId, onClose }) => {
             <progress
               value={progress}
               max="100"
-              className={`w-full h-3 rounded-full bg-gray-700/50 [&::-webkit-progress-bar]:bg-gray-700/50 [&::-webkit-progress-value]:bg-gradient-to-r [&::-webkit-progress-value]:from-blue-500 [&::-webkit-progress-value]:to-purple-600 [&::-webkit-progress-value]:rounded-full transition-all duration-300 ${
+              className={`w-full h-3 rounded-full bg-gray-700/50 [&::-webkit-progress-bar]:bg-gray-700/50 [&::-webkit-progress-value]:bg-yellow-500 [&::-webkit-progress-value]:rounded-full transition-all duration-300 ${
                 uploading ? "block" : "hidden"
               }`}
             ></progress>
           </div>
           {error && <p className="text-red-400 text-sm">{error}</p>}
           <div className="flex gap-4">
-            <button
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
               type="submit"
-              className="flex-1 py-3 px-6 rounded-lg bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold shadow-lg hover:shadow-xl hover:scale-105 transform transition-all duration-300 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 py-3 px-6 rounded-lg bg-yellow-500 text-black font-semibold shadow-lg hover:shadow-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed glow-button"
               disabled={uploading}
             >
               {uploading ? "Uploading..." : "Upload Reel"}
-            </button>
-            <button
+            </motion.button>
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
               type="button"
               onClick={onClose}
-              className="py-3 px-6 rounded-lg bg-gray-700 text-white font-semibold hover:bg-gray-600 transition-all duration-300"
+              className="py-3 px-6 rounded-lg bg-gray-700 text-white font-semibold hover:bg-gray-600 transition-all duration-300 glow-button"
             >
               Cancel
-            </button>
+            </motion.button>
           </div>
         </form>
       ) : (
@@ -379,8 +390,14 @@ const UploadForm: React.FC<UploadFormProps> = ({ brandId, onClose }) => {
             >
               Paste Google Drive Video File Link
             </label>
-            <div className="relative flex items-center p-4 rounded-lg bg-gray-800/50 border border-gray-600">
-              <FiLink className="text-blue-400 text-2xl mr-2" />
+            <div className="relative flex items-center p-4 rounded-lg bg-black border border-gray-600 glow-input">
+              <motion.div
+                animate={{ scale: [1, 1.1, 1] }}
+                transition={{ duration: 2, repeat: Infinity }}
+                className="icon-glow"
+              >
+                <FiLink className="text-yellow-400 text-2xl mr-2" />
+              </motion.div>
               <input
                 type="text"
                 id="driveLink"
@@ -397,24 +414,28 @@ const UploadForm: React.FC<UploadFormProps> = ({ brandId, onClose }) => {
           </div>
           {error && <p className="text-red-400 text-sm">{error}</p>}
           <div className="flex gap-4">
-            <button
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
               type="submit"
-              className="flex-1 py-3 px-6 rounded-lg bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold shadow-lg hover:shadow-xl hover:scale-105 transform transition-all duration-300 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 py-3 px-6 rounded-lg bg-yellow-500 text-black font-semibold shadow-lg hover:shadow-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed glow-button"
               disabled={uploading}
             >
               {uploading ? "Submitting..." : "Submit Link"}
-            </button>
-            <button
+            </motion.button>
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
               type="button"
               onClick={onClose}
-              className="py-3 px-6 rounded-lg bg-gray-700 text-white font-semibold hover:bg-gray-600 transition-all duration-300"
+              className="py-3 px-6 rounded-lg bg-gray-700 text-white font-semibold hover:bg-gray-600 transition-all duration-300 glow-button"
             >
               Cancel
-            </button>
+            </motion.button>
           </div>
         </form>
       )}
-    </div>
+    </>
   );
 };
 

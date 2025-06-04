@@ -1,5 +1,4 @@
 import React, { Suspense } from "react";
-import Loading from "@/app/(dashboard)/list/loading";
 import RevenueChart from "@/components/RevenueChart";
 import ViewsChart from "@/components/ViewsChart";
 import { MdCloudUpload, MdEdit, MdOutlinePeople } from "react-icons/md";
@@ -22,10 +21,10 @@ import { auth } from '@clerk/nextjs/server';
 import prisma from '@/lib/prisma';
 import { DashboardData } from '@/types/dashboard';
 import { redirect } from "next/navigation";
+import PageLoader from "@/components/PageLoader";
 
 export default async function Users({ searchParams }: { searchParams: Promise<{ [keys: string]: string | undefined }> }) {
   const resolvedSearchParams = await searchParams;
-  await new Promise((resolve) => setTimeout(resolve, 2000));
 
   const { userId: authUserId, getToken } = await auth();
 
@@ -35,7 +34,7 @@ export default async function Users({ searchParams }: { searchParams: Promise<{ 
     redirect('/');
   }
 
-  // Double-check auth state to prevent getToken call
+  // Double-check auth state
   const session = await auth();
   if (!session?.userId) {
     console.error('Session invalid after redirect check, redirecting to /');
@@ -142,10 +141,8 @@ export default async function Users({ searchParams }: { searchParams: Promise<{ 
       let pendingUsersData: { pendingUsers: any[]; approvedUsers: number } = { pendingUsers, approvedUsers: 0 };
       try {
         const token = await getToken({ template: 'clerk' });
-        console.log('Clerk Token in page.tsx:', token || 'No token');
         if (token) {
           const url = `${process.env.NEXT_PUBLIC_BASE_URL}/api/invites/pending`;
-          console.log('Fetching pending users from:', url);
           const pendingResponse = await fetch(url, {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -153,10 +150,8 @@ export default async function Users({ searchParams }: { searchParams: Promise<{ 
             },
             cache: 'no-store',
           });
-          console.log('Pending Response:', pendingResponse.status, pendingResponse.statusText);
           if (pendingResponse.ok) {
             pendingUsersData = await pendingResponse.json();
-            console.log('Pending Users Data:', JSON.stringify(pendingUsersData, null, 2));
           } else {
             const errorText = await pendingResponse.text();
             console.error(`Pending users fetch failed: ${pendingResponse.status} ${pendingResponse.statusText}`, errorText);
@@ -170,7 +165,7 @@ export default async function Users({ searchParams }: { searchParams: Promise<{ 
           pendingUsersData.pendingUsers = pendingUsers;
           pendingUsersData.approvedUsers = await prisma.invite.count({
             where: { inviterId: authUserId, status: 'approved' },
-            });
+          });
         }
       } catch (error) {
         console.error('Error fetching pending users:', error);
@@ -218,120 +213,146 @@ export default async function Users({ searchParams }: { searchParams: Promise<{ 
   }
 
   return (
-    <Suspense fallback={<Loading />}>
-      <div className="bg-gradient-to-b from-black to-gray-900 min-h-screen w-full flex flex-col p-6 md:p-8 text-white overflow-y-auto">
-        <div className="flex items-center space-x-3 md:space-x-4">
-          <img
-            src="/yellowlogo.png"
-            alt="Logo"
-            className="w-12 h-12 md:w-14 md:h-14 rounded-full object-cover animate-logo-glow"
+    <Suspense fallback={<div className="bg-black min-h-screen flex items-center justify-center" />}>
+      <PageLoader>
+        <div className="bg-gradient-to-b from-black to-gray-900 min-h-screen w-full flex flex-col p-6 md:p-8 text-white overflow-y-auto">
+          <div className="flex items-center space-x-3 md:space-x-4">
+            <img
+              src="/yellowlogo.png"
+              alt="Logo"
+              className="w-12 h-12 md:w-14 md:h-14 rounded-full object-cover animate-logo-glow"
+            />
+            <h1
+              className="text-3xl md:text-5xl font-bold font-poppins bg-clip-text text-transparent bg-gradient-to-r from-yellow-300 to-yellow-500 animate-gradient tracking-tight"
+              style={{ textShadow: "0 0 10px rgba(234, 179, 8, 0.8)" }}
+            >
+              DASHBOARD
+            </h1>
+          </div>
+
+          <div className="flex items-center space-x-2 mt-6 md:mt-8 mb-4 md:mb-6">
+            <MdCloudUpload className="w-6 h-6 text-yellow-500 glowing-icon twinkling-icon" />
+            <h2 className="text-xl md:text-2xl font-extrabold font-orbitron bg-clip-text text-transparent bg-gradient-to-r from-yellow-300 to-yellow-500 animate-gradient tracking-tight animate-glow">
+              UPLOADERS OVERVIEW
+            </h2>
+          </div>
+          <div className="w-full h-1 bg-gradient-to-r from-yellow-300 to-yellow-500 mb-4 md:mb-6"></div>
+
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 w-full">
+            <Suspense fallback={<div className="bg-gray-800 h-32 rounded-lg" />}>
+              <ViewsChart type="Your View" />
+            </Suspense>
+            <Suspense fallback={<div className="bg-gray-800 h-32 rounded-lg" />}>
+              <RevenueChart type="Your Revenue" />
+            </Suspense>
+            <Suspense fallback={<div className="bg-gray-800 h-32 rounded-lg" />}>
+              <LifetimeViews />
+            </Suspense>
+            <Suspense fallback={<div className="bg-gray-800 h-32 rounded-lg" />}>
+              <LifetimeRevenueCard />
+            </Suspense>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 w-full mt-6 md:mt-8">
+            <Suspense fallback={<div className="bg-gray-800 h-64 rounded-lg" />}>
+              <RevFetch />
+            </Suspense>
+            <Suspense fallback={<div className="bg-gray-800 h-64 rounded-lg" />}>
+              <RevChart />
+            </Suspense>
+          </div>
+
+          <div className="flex items-center space-x-2 mt-6 md:mt-8 mb-4 md:mb-6">
+            <MdEdit className="w-6 h-6 text-yellow-500 glowing-icon twinkling-icon" />
+            <h2 className="text-xl md:text-2xl font-extrabold font-orbitron bg-clip-text text-transparent bg-gradient-to-r from-yellow-300 to-yellow-500 animate-gradient tracking-tight animate-glow">
+              EDITORS OVERVIEW
+            </h2>
+          </div>
+          <div className="w-full h-1 bg-gradient-to-r from-yellow-300 to-yellow-500 mb-4 md:mb-6"></div>
+
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 w-full">
+            <Suspense fallback={<div className="bg-gray-800 h-32 rounded-lg" />}>
+              <EdiViews type="Your Views" />
+            </Suspense>
+            <Suspense fallback={<div className="bg-gray-800 h-32 rounded-lg" />}>
+              <EdiRevenue type="Your Revenue" />
+            </Suspense>
+            <Suspense fallback={<div className="bg-gray-800 h-32 rounded-lg" />}>
+              <EdiLifetimeViews type="Lifetime Views" />
+            </Suspense>
+            <Suspense fallback={<div className="bg-gray-800 h-32 rounded-lg" />}>
+              <EdiLifetimeRevenue type="Lifetime Revenue" />
+            </Suspense>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 w-full mt-6 md:mt-8">
+            <Suspense fallback={<div className="bg-gray-800 h-64 rounded-lg" />}>
+              <EdiViewsChart type="Monthly Views" />
+            </Suspense>
+            <Suspense fallback={<div className="bg-gray-800 h-64 rounded-lg" />}>
+              <EdiRevenueChart type="Monthly Revenue" />
+            </Suspense>
+          </div>
+
+          <div className="flex items-center space-x-2 mt-6 md:mt-8 mb-4 md:mb-6">
+            <MdOutlinePeople className="w-6 h-6 text-yellow-500 glowing-icon twinkling-icon" />
+            <h2 className="text-xl md:text-2xl font-extrabold font-orbitron bg-clip-text text-transparent bg-gradient-to-r from-yellow-300 to-yellow-500 animate-gradient tracking-tight animate-glow">
+              REFERRAL OVERVIEW
+            </h2>
+          </div>
+          <div className="w-full h-1 bg-gradient-to-r from-yellow-300 to-yellow-500 mb-4 md:mb-6"></div>
+
+          {dashboardData.inviteLink && (
+            <div className="mt-4 bg-gray-800 p-4 rounded-lg shadow-md">
+              <h3 className="text-lg font-bold text-white font-poppins">Your Invite Link</h3>
+              <p className="text-sm text-gray-300 font-medium break-all">{dashboardData.inviteLink}</p>
+            </div>
+          )}
+
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 w-full mt-4 md:mt-6">
+            <Suspense fallback={<div className="bg-gray-800 h-32 rounded-lg" />}>
+              <InvitedToServerCard inviteCount={dashboardData.inviteCount} />
+            </Suspense>
+            <Suspense fallback={<div className="bg-gray-800 h-32 rounded-lg" />}>
+              <LoggedInWebsiteCard loggedInWebsite={dashboardData.loggedInWebsite} />
+            </Suspense>
+            <Suspense fallback={<div className="bg-gray-800 h-32 rounded-lg" />}>
+              <ApprovedReferredCard approvedUsers={dashboardData.approvedUsers.length} />
+            </Suspense>
+            <Suspense fallback={<div className="bg-gray-800 h-32 rounded-lg" />}>
+              <TotalEarningsCard earnings={dashboardData.earnings} />
+            </Suspense>
+          </div>
+
+          <div className="w-full mt-4 md:mt-6">
+            <Suspense fallback={<div className="bg-gray-800 h-32 rounded-lg" />}>
+              <PendingUsersCard pendingUsers={dashboardData.pendingUsers} />
+            </Suspense>
+          </div>
+
+          <script
+            dangerouslySetInnerHTML={{
+              __html: `
+                setInterval(async () => {
+                  const token = await fetch('/api/auth/session').then(res => res.json()).then(data => data.token);
+                  if (!token) return;
+                  const response = await fetch('/api/invites/refresh', {
+                    headers: {
+                      Authorization: \`Bearer \${token}\`,
+                      'Content-Type': 'application/json',
+                    },
+                  });
+                  const data = await response.json();
+                  if (data.pendingUsers) {
+                    document.dispatchEvent(new CustomEvent('updatePendingUsers', { detail: data.pendingUsers }));
+                    document.dispatchEvent(new CustomEvent('updateLoggedInWebsite', { detail: data.loggedInWebsite }));
+                  }
+                }, 5000);
+              `,
+            }}
           />
-          <h1
-            className="text-3xl md:text-5xl font-bold font-poppins bg-clip-text text-transparent bg-gradient-to-r from-yellow-300 to-yellow-500 animate-gradient tracking-tight"
-            style={{ textShadow: "0 0 10px rgba(234, 179, 8, 0.8)" }}
-          >
-            DASHBOARD
-          </h1>
         </div>
-
-        <div className="flex items-center space-x-2 mt-6 md:mt-8 mb-4 md:mb-6">
-          <MdCloudUpload className="w-6 h-6 text-yellow-500 glowing-icon twinkling-icon" />
-          <h2 className="text-xl md:text-2xl font-extrabold font-orbitron bg-clip-text text-transparent bg-gradient-to-r from-yellow-300 to-yellow-500 animate-gradient tracking-tight animate-glow">
-            UPLOADERS OVERVIEW
-          </h2>
-        </div>
-        <div className="w-full h-1 bg-gradient-to-r from-yellow-300 to-yellow-500 mb-4 md:mb-6"></div>
-
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 w-full">
-          <ViewsChart type="Your View" />
-          <RevenueChart type="Your Revenue" />
-          <LifetimeViews />
-          <LifetimeRevenueCard />
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 w-full mt-6 md:mt-8">
-          <RevFetch />
-          <RevChart />
-        </div>
-
-        <div className="flex items-center space-x-2 mt-6 md:mt-8 mb-4 md:mb-6">
-          <MdEdit className="w-6 h-6 text-yellow-500 glowing-icon twinkling-icon" />
-          <h2 className="text-xl md:text-2xl font-extrabold font-orbitron bg-clip-text text-transparent bg-gradient-to-r from-yellow-300 to-yellow-500 animate-gradient tracking-tight animate-glow">
-            EDITORS OVERVIEW
-          </h2>
-        </div>
-        <div className="w-full h-1 bg-gradient-to-r from-yellow-300 to-yellow-500 mb-4 md:mb-6"></div>
-
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 w-full">
-          <EdiViews type="Your Views" />
-          <EdiRevenue type="Your Revenue" />
-          <EdiLifetimeViews type="Lifetime Views" />
-          <EdiLifetimeRevenue type="Lifetime Revenue" />
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 w-full mt-6 md:mt-8">
-          <EdiViewsChart type="Monthly Views" />
-          <EdiRevenueChart type="Monthly Revenue" />
-        </div>
-
-        <div className="flex items-center space-x-2 mt-6 md:mt-8 mb-4 md:mb-6">
-          <MdOutlinePeople className="w-6 h-6 text-yellow-500 glowing-icon twinkling-icon" />
-          <h2 className="text-xl md:text-2xl font-extrabold font-orbitron bg-clip-text text-transparent bg-gradient-to-r from-yellow-300 to-yellow-500 animate-gradient tracking-tight animate-glow">
-            REFERRAL OVERVIEW
-          </h2>
-        </div>
-        <div className="w-full h-1 bg-gradient-to-r from-yellow-300 to-yellow-500 mb-4 md:mb-6"></div>
-
-        {dashboardData.inviteLink && (
-          <div className="mt-4 bg-gray-800 p-4 rounded-lg shadow-md fade-in">
-            <h3 className="text-lg font-bold text-white font-poppins">Your Invite Link</h3>
-            <p className="text-sm text-gray-300 font-medium break-all">{dashboardData.inviteLink}</p>
-          </div>
-        )}
-
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 w-full mt-4 md:mt-6">
-          <div>
-            <InvitedToServerCard inviteCount={dashboardData.inviteCount} />
-          </div>
-          <div>
-            <LoggedInWebsiteCard loggedInWebsite={dashboardData.loggedInWebsite} />
-          </div>
-          <div>
-            <ApprovedReferredCard approvedUsers={dashboardData.approvedUsers.length} />
-          </div>
-          <div>
-            <TotalEarningsCard earnings={dashboardData.earnings} />
-          </div>
-        </div>
-
-        <div className="w-full mt-4 md:mt-6">
-          <div>
-            <PendingUsersCard pendingUsers={dashboardData.pendingUsers} />
-          </div>
-        </div>
-
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              setInterval(async () => {
-                const token = await fetch('/api/auth/session').then(res => res.json()).then(data => data.token);
-                if (!token) return;
-                const response = await fetch('/api/invites/refresh', {
-                  headers: {
-                    Authorization: \`Bearer \${token}\`,
-                    'Content-Type': 'application/json',
-                  },
-                });
-                const data = await response.json();
-                if (data.pendingUsers) {
-                  document.dispatchEvent(new CustomEvent('updatePendingUsers', { detail: data.pendingUsers }));
-                  document.dispatchEvent(new CustomEvent('updateLoggedInWebsite', { detail: data.loggedInWebsite }));
-                }
-              }, 5000);
-            `,
-          }}
-        />
-      </div>
+      </PageLoader>
     </Suspense>
   );
 }

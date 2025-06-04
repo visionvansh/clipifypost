@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import BottomNavbar from "@/components/BottomNavbar";
+import PageLoader from "@/components/PageLoader";
 
 type Account = {
   id: number;
@@ -242,38 +243,40 @@ export default async function PasteLinksPage({ params }: { params: Promise<{ com
   };
 
   return (
-    <div className="bg-[#121212] min-h-screen w-full text-gray-200 flex flex-col overflow-y-auto">
-      <div className="w-full pt-4 pb-20 px-4 sm:px-8 lg:px-0 flex-grow bg-[#121212]">
-        <div className="flex items-center justify-center space-x-2 mb-7 animate-fadeIn">
-          <LinkIcon />
-          <h2 className="text-5xl md:text-5xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-yellow-400 to-yellow-600 tracking-tight glow-text">
-            Paste Links for {company.name}
-          </h2>
-          <LinkIcon />
+    <PageLoader>
+      <div className="bg-[#121212] min-h-screen w-full text-gray-200 flex flex-col overflow-y-auto">
+        <div className="w-full pt-4 pb-20 px-4 sm:px-8 lg:px-0 flex-grow bg-[#121212]">
+          <div className="flex items-center justify-center space-x-2 mb-7 animate-fadeIn">
+            <LinkIcon />
+            <h2 className="text-5xl md:text-5xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-yellow-400 to-yellow-600 tracking-tight glow-text">
+              Paste Links for {company.name}
+            </h2>
+            <LinkIcon />
+          </div>
+          <div className="animate-slideIn w-full bg-[#121212]">
+            <ClientPasteLinksForm
+              handleClipSubmit={handleClipSubmit}
+              handleUpdateViews={handleUpdateViews}
+              initialAccounts={user.accounts}
+              companyId={companyId}
+              initialClips={initialClips}
+            />
+          </div>
         </div>
-        <div className="animate-slideIn w-full bg-[#121212]">
-          <ClientPasteLinksForm
-            handleClipSubmit={handleClipSubmit}
-            handleUpdateViews={handleUpdateViews}
-            initialAccounts={user.accounts}
-            companyId={companyId}
-            initialClips={initialClips}
-          />
-        </div>
+        <BottomNavbar companyId={companyIdStr} />
+        <ToastContainer
+          position="top-right"
+          autoClose={3000}
+          hideProgressBar={false}
+          newestOnTop={false}
+          closeOnClick
+          rtl={false}
+          pauseOnFocusLoss
+          draggable
+          pauseOnHover
+          theme="dark"
+        />
       </div>
-      <BottomNavbar companyId={companyIdStr} />
-      <ToastContainer
-        position="top-right"
-        autoClose={3000}
-        hideProgressBar={false}
-        newestOnTop={false}
-        closeOnClick
-        rtl={false}
-        pauseOnFocusLoss
-        draggable
-        pauseOnHover
-        theme="dark"
-      />
-    </div>
+    </PageLoader>
   );
 }

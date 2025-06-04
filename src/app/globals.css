@@ -3,12 +3,10 @@
 @tailwind utilities;
 
 html, body {
-  background-color: #000;
-  color: #fff;
-  min-height: 100vh;
+  background-color: black !important; /* Force black background */
   margin: 0;
   padding: 0;
-  background: #000;
+  height: 100%;
 }
 
 @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap');
@@ -197,10 +195,6 @@ html, body {
     padding: 0.75rem;
   }
 
-  .glow-text {
-    font-size: 1.5rem; /* Smaller font size for mobile */
-  }
-
   .referral-card h2 {
     font-size: 0.875rem; /* Smaller subtitle for mobile */
   }
@@ -235,10 +229,6 @@ html, body {
 @media (min-width: 1024px) {
   .referral-card {
     padding: 1.25rem;
-  }
-
-  .glow-text {
-    font-size: 2.5rem;
   }
 
   .glowing-icon {
@@ -537,9 +527,7 @@ html, body {
 
 /* Mobile Adjustments */
 @media (max-width: 768px) {
-  .glow-text {
-    font-size: 1.25rem; /* Smaller headings */
-  }
+
 
   .glowing-icon {
     width: 1rem;
@@ -682,9 +670,7 @@ html, body {
 
 /* Responsive Adjustments */
 @media (max-width: 768px) {
-  .glow-text {
-    font-size: 1.25rem; /* Smaller headings for mobile */
-  }
+
 
   .glowing-icon {
     width: 1rem;
@@ -719,12 +705,119 @@ html, body {
     padding: 1.5rem;
   }
 
-  .glow-text {
-    font-size: 2rem;
-  }
+
 
   .glowing-icon {
     width: 1.5rem;
     height: 1.5rem;
   }
+}
+
+
+
+
+.glow-heading {
+  text-shadow: 0 0 10px #FFD700, 0 0 20px #FFD700, 0 0 30px #FFD700;
+}
+
+.glow-input {
+  transition: box-shadow 0.3s;
+}
+
+.glow-input:focus {
+  box-shadow: 0 0 10px #FFD700;
+}
+
+.glow-button {
+  box-shadow: 0 0 10px #FFD700;
+}
+
+.icon-glow {
+  filter: drop-shadow(0 0 5px #FFD700);
+}
+
+.table-enhanced {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table-enhanced th, .table-enhanced td {
+  padding: 12px;
+  text-align: left;
+}
+
+.table-enhanced tr:nth-child(even) {
+  background-color: #111111;
+}
+
+.table-enhanced tr:hover {
+  background-color: #222222;
+}
+.glow-circle {
+  box-shadow: 0 0 20px rgba(234, 179, 8, 0.5), 0 0 40px rgba(234, 179, 8, 0.3);
+}
+.glow-logo {
+  filter: drop-shadow(0 0 10px rgba(234, 179, 8, 0.7));
+}
+
+.glass-table {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.glow-text {
+  text-shadow: 0 0 5px rgba(234, 179, 8, 0.8);
+}
+
+.glow-icon {
+  filter: drop-shadow(0 0 5px #FFD700);
+}
+
+.glow-icon-green {
+  filter: drop-shadow(0 0 5px #22c55e);
+}
+
+.glow-icon-red {
+  filter: drop-shadow(0 0 5px #ef4444);
+}
+
+.animate-glow {
+  animation: glow-pulse 1.5s linear infinite;
+}
+
+@keyframes glow-pulse {
+  0% {
+    text-shadow: 0 0 5px rgba(234, 179, 8, 0.8);
+  }
+  50% {
+    text-shadow: 0 0 10px rgba(234, 179, 8, 1);
+  }
+  100% {
+    text-shadow: 0 0 5px rgba(234, 179, 8, 0.8);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+@keyframes logo-glow {
+  0% { filter: drop-shadow(0 0 10px rgba(234, 179, 8, 0.7)); }
+  50% { filter: drop-shadow(0 0 20px rgba(234, 179, 8, 1)); }
+  100% { filter: drop-shadow(0 0 10px rgba(234, 179, 8, 0.7)); }
+}
+
+.animate-logo-glow {
+  animation: logo-glow 1.5s infinite ease-in-out;
+}
+
+.glow-heading {
+  text-shadow: 0 0 10px rgba(255, 255, 255, 0.8), 0 0 20px rgba(255, 255, 255, 0.6);
+}
+.glow-text {
+  text-shadow: 0 0 5px rgba(234, 179, 8, 0.8), 0 0 10px rgba(234, 179, 8, 0.6);
 }

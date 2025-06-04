@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import ClientVerifyForm from "./ClientVerifyForm";
 import BottomNavbar from "@/components/BottomNavbar";
 import { Account } from "@/types/account";
+import PageLoader from "@/components/PageLoader"; // Import the PageLoader component
 
 const isValidSocialLink = (link: string): boolean => {
   const instagramRegex = /^https?:\/\/(www\.)?instagram\.com\/[a-zA-Z0-9_.]+(\/|\?.*)?$/;
@@ -169,25 +170,27 @@ export default async function VerifyPage({ params }: { params: Promise<{ company
   };
 
   return (
-    <div className="bg-[#121212] min-h-screen w-full text-gray-200 flex flex-col overflow-y-auto">
-      <div className="w-full pt-4 pb-20 px-4 sm:px-8 lg:px-0 flex-grow bg-[#121212]">
-        <div className="flex items-center justify-center space-x-2 mb-7 animate-fadeIn">
-          <ShieldIcon />
-          <h2 className="text-5xl md:text-5xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-yellow-400 to-yellow-600 tracking-tight glow-text">
-            Verify Your Account
-          </h2>
-          <ShieldIcon />
+    <PageLoader>
+      <div className="bg-[#121212] min-h-screen w-full text-gray-200 flex flex-col overflow-y-auto">
+        <div className="w-full pt-4 pb-20 px-4 sm:px-8 lg:px-0 flex-grow bg-[#121212]">
+          <div className="flex items-center justify-center space-x-2 mb-7 animate-fadeIn">
+            <ShieldIcon />
+            <h2 className="text-5xl md:text-5xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-yellow-400 to-yellow-600 tracking-tight glow-text">
+              Verify Your Account
+            </h2>
+            <ShieldIcon />
+          </div>
+          <div className="animate-slideIn w-full bg-[#121212]">
+            <ClientVerifyForm
+              handleAccountSubmit={handleAccountSubmit}
+              handleVerify={handleVerify}
+              handlePasteVerificationCode={handlePasteVerificationCode}
+              initialAccounts={user.accounts as Account[]}
+            />
+          </div>
         </div>
-        <div className="animate-slideIn w-full bg-[#121212]">
-          <ClientVerifyForm
-            handleAccountSubmit={handleAccountSubmit}
-            handleVerify={handleVerify}
-            handlePasteVerificationCode={handlePasteVerificationCode}
-            initialAccounts={user.accounts as Account[]}
-          />
-        </div>
+        <BottomNavbar companyId={companyId} />
       </div>
-      <BottomNavbar companyId={companyId} />
-    </div>
+    </PageLoader>
   );
 }
