@@ -15,7 +15,6 @@ export default function DiscordClient() {
   const [status, setStatus] = useState('');
   const [templateType, setTemplateType] = useState('promotion');
 
-  // Initialize bot on page load
   useEffect(() => {
     const initBot = async () => {
       try {
@@ -56,14 +55,6 @@ export default function DiscordClient() {
     const channelId = formData.get('channelId') as string;
     const template = formData.get('templateType') as string;
 
-    const fields: CustomField[] = customFields.map((_, index) => ({
-      type: formData.get(`type${index + 1}`) as 'heading' | 'subheading',
-      heading: formData.get(`heading${index + 1}`) as string,
-      value: formData.get(`value${index + 1}`) as string,
-      valueStyle: formData.get(`valueStyle${index + 1}`) as string,
-      valueSize: formData.get(`valueSize${index + 1}`) as string,
-    }));
-
     const payload: any = {
       channelId,
       templateType: template,
@@ -79,10 +70,19 @@ export default function DiscordClient() {
       payload.titleStyle = formData.get('titleStyle') as string;
       payload.titleColor = formData.get('titleColor') as string;
       payload.footer = formData.get('footer') as string;
-      payload.customFields = fields;
       payload.buttonLabel = formData.get('buttonLabel') as string;
       payload.buttonUrl = formData.get('buttonUrl') as string;
-      if (template === 'announcement' || template === 'rules') {
+      payload.extraLines = parseInt(formData.get('extraLines') as string) || 0;
+
+      if (template === 'rules' || template === 'announcement') {
+        const fields: CustomField[] = customFields.map((_, index) => ({
+          type: formData.get(`type${index + 1}`) as 'heading' | 'subheading',
+          heading: formData.get(`heading${index + 1}`) as string,
+          value: formData.get(`value${index + 1}`) as string,
+          valueStyle: formData.get(`valueStyle${index + 1}`) as string,
+          valueSize: formData.get(`valueSize${index + 1}`) as string,
+        }));
+        payload.customFields = fields;
         payload.mainHeading = formData.get('mainHeading') as string;
         payload.subheading = formData.get('subheading') as string;
         if (template === 'rules') {
@@ -91,9 +91,7 @@ export default function DiscordClient() {
       }
       if (template === 'promotion') {
         payload.description = formData.get('description') as string;
-        payload.descriptionStyle = formData.get('descriptionStyle') as string;
-        payload.descriptionSize = formData.get('descriptionSize') as string;
-        payload.descriptionColor = formData.get('descriptionColor') as string;
+        // Removed descriptionStyle, descriptionSize, descriptionColor to keep raw Markdown formatting
       }
     }
 
@@ -248,51 +246,35 @@ export default function DiscordClient() {
 
             {templateType === 'promotion' && (
               <>
-                <label htmlFor="description" className="text-yellow-300 font-semibold">Description:</label>
+                <label htmlFor="description" className="text-yellow-300 font-semibold">Description (Supports Markdown):</label>
                 <textarea
                   id="description"
                   name="description"
-                  placeholder="Enter the description..."
+                  placeholder="Enter the description... Use **bold**, *italic*, and line breaks."
                   className="w-full p-3 sm:p-4 bg-[#1a1a1a] text-gray-200 border border-yellow-500 rounded-xl focus:outline-none focus:border-yellow-400 transition-all shadow-md glow-item text-sm"
+                  rows={6}
                   required
                 ></textarea>
-
-                <label htmlFor="descriptionStyle" className="text-yellow-300 font-semibold">Description Style:</label>
-                <select
-                  id="descriptionStyle"
-                  name="descriptionStyle"
-                  className="w-full p-3 sm:p-4 bg-[#1a1a1a] text-gray-200 border border-yellow-500 rounded-xl focus:outline-none focus:border-yellow-400 transition-all shadow-md glow-item text-sm"
-                >
-                  <option value="none">None</option>
-                  <option value="bold">Bold</option>
-                  <option value="italic">Italic</option>
-                  <option value="bold-italic">Bold & Italic</option>
-                </select>
-
-                <label htmlFor="descriptionSize" className="text-yellow-300 font-semibold">Description Size (Visual Indicator):</label>
-                <select
-                  id="descriptionSize"
-                  name="descriptionSize"
-                  className="w-full p-3 sm:p-4 bg-[#1a1a1a] text-gray-200 border border-yellow-500 rounded-xl focus:outline-none focus:border-yellow-400 transition-all shadow-md glow-item text-sm"
-                >
-                  <option value="normal">Normal</option>
-                  <option value="large">[Large]</option>
-                  <option value="small">[Small]</option>
-                </select>
-
-                <label htmlFor="descriptionColor" className="text-yellow-300 font-semibold">Description Color (Hex Code):</label>
-                <input
-                  type="text"
-                  id="descriptionColor"
-                  name="descriptionColor"
-                  placeholder="e.g., #FFFFFF"
-                  defaultValue="#FFFFFF"
-                  className="w-full p-3 sm:p-4 bg-[#1a1a1a] text-gray-200 border border-yellow-500 rounded-xl focus:outline-none focus:border-yellow-400 transition-all shadow-md glow-item text-sm"
-                />
+                <div className="text-xs text-yellow-300 font-semibold">
+                  Use Markdown: **bold**, *italic*, line breaks, etc. will reflect in the embed as is.
+                </div>
               </>
             )}
 
-            <label htmlFor="footer" className="text-yellow-300 font-semibold">Footer Text:</label>
+            <label htmlFor="extraLines" className="text-yellow-300 font-semibold">Extra Lines Before Footer:</label>
+            <input
+              type="number"
+              id="extraLines"
+              name="extraLines"
+              min="0"
+              defaultValue="0"
+              className="w-full p-3 sm:p-4 bg-[#1a1a1a] text-gray-200 border border-yellow-500 rounded-xl focus:outline-none focus:border-yellow-400 transition-all shadow-md glow-item text-sm"
+            />
+            <div className="text-xs text-yellow-300 font-semibold">
+              Enter how many blank lines you want before the footer in the embed.
+            </div>
+
+            <label htmlFor="footer" className="text-yellow-300 font-semibold mt-8">Footer Text:</label>
             <input
               type="text"
               id="footer"
@@ -306,7 +288,7 @@ export default function DiscordClient() {
               required
             />
 
-            {(templateType === 'promotion' || templateType === 'rules' || templateType === 'announcement') && (
+            {(templateType === 'rules' || templateType === 'announcement') && (
               <>
                 <label className="text-yellow-300 font-semibold">Custom Fields:</label>
                 <div id="customFields" className="flex flex-col gap-4">

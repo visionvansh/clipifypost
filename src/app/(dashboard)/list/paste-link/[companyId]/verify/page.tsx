@@ -175,7 +175,7 @@ export default async function VerifyPage({ params }: { params: Promise<{ company
         <div className="w-full pt-4 pb-20 px-4 sm:px-8 lg:px-0 flex-grow bg-[#121212]">
           <div className="flex items-center justify-center space-x-2 mb-7 animate-fadeIn">
             <ShieldIcon />
-            <h2 className="text-5xl md:text-5xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-yellow-400 to-yellow-600 tracking-tight glow-text">
+            <h2 className="text-3xl md:text-5xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-yellow-400 to-yellow-600 tracking-tight glow-text">
               Verify Your Account
             </h2>
             <ShieldIcon />

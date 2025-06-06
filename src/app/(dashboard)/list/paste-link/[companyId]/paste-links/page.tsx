@@ -248,7 +248,7 @@ export default async function PasteLinksPage({ params }: { params: Promise<{ com
         <div className="w-full pt-4 pb-20 px-4 sm:px-8 lg:px-0 flex-grow bg-[#121212]">
           <div className="flex items-center justify-center space-x-2 mb-7 animate-fadeIn">
             <LinkIcon />
-            <h2 className="text-5xl md:text-5xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-yellow-400 to-yellow-600 tracking-tight glow-text">
+            <h2 className="text-2xl md:text-5xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-yellow-400 to-yellow-600 tracking-tight glow-text">
               Paste Links for {company.name}
             </h2>
             <LinkIcon />
