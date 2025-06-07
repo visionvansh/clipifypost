@@ -9,6 +9,7 @@ type Brand = {
   id: number;
   name: string;
   description?: string | null;
+  moreDetails?: string | null;
   rate: number;
 };
 
@@ -24,15 +25,24 @@ const AddSocialProfilePage = async ({
   if (!userId) {
     return (
       <div className="text-white text-center mt-10 text-xl bg-black min-h-screen">
-        Please log in to view brands.
+        Please log in to view Editors Hub.
       </div>
     );
   }
 
   try {
     const brands = await prisma.brand.findMany({
-      select: { id: true, name: true, description: true, rate: true },
+      where: { status: "Active" },
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        moreDetails: true,
+        rate: true,
+      },
     });
+
+    console.log("Fetched Brands:", brands.map((b) => ({ name: b.name, moreDetails: b.moreDetails?.slice(0, 50) })));
 
     return (
       <PageLoader>
@@ -45,10 +55,10 @@ const AddSocialProfilePage = async ({
                   EDITORS HUB
                 </h2>
               </div>
-               <div className="w-full h-1 bg-gradient-to-r from-yellow-300 to-yellow-500 animate-glow"></div>
+              <div className="w-full h-1 bg-gradient-to-r from-yellow-300 to-yellow-500 animate-glow"></div>
               {brands.length === 0 ? (
                 <div className="text-white text-center text-xl">
-                  No brands available. Please contact support.
+                  No active brands available. Please contact support.
                 </div>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -68,6 +78,7 @@ const AddSocialProfilePage = async ({
                           description: brand.description
                             ? brand.description.split(/\./).filter((s) => s.trim())
                             : [],
+                          moreDetails: brand.moreDetails,
                           rate: brand.rate,
                         }}
                       />

@@ -118,6 +118,7 @@ model Clip {
   previousApprovedViews Int?
   postedAt              DateTime?
   status    String  @default("pending")
+  
   account   Account @relation(fields: [accountId], references: [id])
   company   Company @relation(fields: [companyId], references: [id])
 }
@@ -185,15 +186,16 @@ model Announcement {
 }
 
 model Company {
-  id              Int    @id @default(autoincrement())
-  name            String @unique
-  rate            String
-  image           String
-  tutorialVideo   String
-  thumbnailUrl    String
-  description     String
-  contentLink     String
-  clips           Clip[]
+  id          Int           @id @default(autoincrement())
+  name        String        @unique
+  rate        String
+  image       String
+  description String
+  moreDetails String?       // New field for TipTap rich text
+  clips       Clip[]
+  status      CompanyStatus @default(Active)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
 }
 
 enum UserSex {
@@ -239,10 +241,12 @@ model Brand {
   name        String        @unique
   description String?
   rate        Float
+  moreDetails String?       // Already present
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
   reels       UserReel[]
   userLinks   UserLink[]
+  status      BrandStatus   @default(Active)
 }
 
 model UserLink {
@@ -359,4 +363,14 @@ model Otp {
   otp       String
   expires   DateTime
   createdAt DateTime @default(now())
+}
+
+enum BrandStatus {
+  Active
+  Stopped
+}
+
+enum CompanyStatus {
+  Active
+  Stopped
 }

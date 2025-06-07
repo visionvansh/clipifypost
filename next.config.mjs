@@ -28,7 +28,7 @@ const nextConfig = {
     if (isServer) {
       config.module.rules.push({
         test: /\.node$/,
-        loader: 'node-loader',
+        loader: "node-loader",
       });
     }
     return config;

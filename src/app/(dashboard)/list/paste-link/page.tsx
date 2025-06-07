@@ -1,18 +1,26 @@
 import { auth, currentUser } from "@clerk/nextjs/server";
 import prisma from "@/lib/prisma";
-import Image from "next/image";
-import Link from "next/link";
-import { MdAttachMoney } from "react-icons/md";
+import { Suspense } from "react";
 import PageLoader from "@/components/PageLoader";
 import { MdCloudUpload } from "react-icons/md";
-import { Suspense } from "react";
+import CompanyCard from "@/components/CompanyCard";
+
+type Company = {
+  id: number;
+  name: string;
+  description: string;
+  rate: string;
+  image: string;
+  status: "Active" | "Stopped";
+  createdAt: Date;
+  updatedAt: Date;
+};
 
 export default async function PasteLinkPage() {
   const { userId } = await auth();
   const clerkUser = await currentUser();
   const role = clerkUser?.publicMetadata.role as string | undefined;
 
-  // Debugging logs to trace issues
   console.log("PasteLinkPage - Auth userId:", userId);
   console.log("PasteLinkPage - Clerk user:", clerkUser?.id);
   console.log("PasteLinkPage - Role:", role);
@@ -42,13 +50,15 @@ export default async function PasteLinkPage() {
     );
   }
 
-  const companies = await prisma.company.findMany();
+  const companies = await prisma.company.findMany({
+    where: { status: "Active" }, // Only fetch Active companies
+  });
 
   if (companies.length === 0) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-black">
         <h1 className="text-gray-300 text-xl sm:text-2xl font-medium">
-          No companies found in the database!
+          No active companies found in the database!
         </h1>
       </div>
     );
@@ -69,53 +79,7 @@ export default async function PasteLinkPage() {
             <div className="w-full h-1 bg-gradient-to-r from-yellow-300 to-yellow-500 mb-4 md:mb-6 animate-glow"></div>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-6 sm:gap-10 justify-items-center">
               {companies.map((company) => (
-                <div
-                  key={company.id}
-                  className="bg-[#15151b] p-4 sm:p-6 rounded-3xl shadow-lg hover:shadow-[0_0_20px_rgba(234,179,8,0.5)] transition-all duration-300 transform hover:-translate-y-2 md:hover:-translate-y-4 float-animation pulse-animation w-full sm:max-w-xs lg:max-w-3xl animate-fadeIn"
-                >
-                  <div className="relative">
-                    <Image
-                      src={company.image}
-                      alt={company.name}
-                      width={350}
-                      height={280}
-                      className="rounded-xl mx-auto max-w-full h-auto border border-yellow-500 hover:scale-105 hover:shadow-[0_0_15px_rgba(234,179,8,0.8)] transition-all duration-300"
-                    />
-                  </div>
-                  <h2 className="text-lg sm:text-xl md:text-3xl font-semibold text-gray-100 mt-4 sm:mt-6 text-center mb-4">
-                    {company.name}
-                  </h2>
-                  {company.description ? (
-                    <ul className="mb-4 space-y-1">
-                      {company.description.split(/[,.]/).map((sentence, index) =>
-                        sentence.trim() ? (
-                          <li
-                            key={index}
-                            className="text-sm text-white text-10px flex items-center"
-                          >
-                            <span className="mr-2">→</span>
-                            <span className="inline-block px-2 py-1 rounded-full bg-gray-900 border border-gray-500 hover:bg-yellow-500 hover:text-black transition-all duration-200 max-w-full break-words">
-                              {sentence.trim()}
-                            </span>
-                          </li>
-                        ) : null
-                      )}
-                    </ul>
-                  ) : (
-                    <p className="text-gray-400 text-center text-xs sm:text-sm mt-1 mb-3">
-                      No description available
-                    </p>
-                  )}
-                  <div className="bg-black bg-opacity-50 p-2 rounded-full flex items-center justify-center mt-2 mb-4">
-                    <MdAttachMoney className="text-yellow-500 glowing-icon moving-icon" />
-                    <p className="text-yellow-500 font-bold glow-text text-sm sm:text-lg">{company.rate} per 100k views</p>
-                  </div>
-                  <Link href={`/list/paste-link/${company.id}/verify`}>
-                    <div className="bg-gradient-to-br from-yellow-500 to-yellow-300 hover:from-yellow-400 hover:to-yellow-200 text-black px-4 sm:px-7 py-2 sm:py-3 rounded-full shadow-lg hover:shadow-[0_0_15px_rgba(234,179,8,0.8)] transition-all mt-4 sm:mt-7 mx-auto w-full text-center cursor-pointer text-xs sm:text-sm font-medium tracking-wide button-hover">
-                      🚀 Get Started
-                    </div>
-                  </Link>
-                </div>
+                <CompanyCard key={company.id} company={company} />
               ))}
             </div>
           </div>
