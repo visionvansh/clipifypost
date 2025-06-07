@@ -49,17 +49,22 @@ const BrandForm: FC<BrandFormProps> = ({ action, initialData }) => {
     editorProps: {
       handleKeyDown: (view: any, event: KeyboardEvent) => {
         console.log("TipTap KeyDown (Brand Form):", event.key, event.ctrlKey || event.metaKey); // Debug
-        if (event.ctrlKey || event.metaKey || event.key === "Enter") {
+        // Block Enter without Shift to prevent form submission
+        if (event.key === "Enter" && !event.shiftKey) {
           event.preventDefault();
           event.stopPropagation();
-          return false;
+          return true; // Prevent default Enter behavior
         }
+        // Allow Ctrl+V or Cmd+V for pasting
+        if ((event.ctrlKey || event.metaKey) && event.key === "v") {
+          return false; // Allow default paste behavior
+        }
+        // Allow other key events to proceed normally
         return false;
       },
       handleClick: (view: any, pos: number, event: MouseEvent) => {
-        event.preventDefault();
-        event.stopPropagation();
-        return false;
+        // Only prevent default for specific cases if needed, allow paste via right-click
+        return false; // Allow default click behavior, including right-click paste
       },
     },
   });
