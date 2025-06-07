@@ -395,7 +395,7 @@ const BrandsTable = ({ initialBrands }: { initialBrands: Brand[] }) => {
             >
               Confirm Removal
             </h2>
-            <p className="text-white mb-4">Do you really want to remove this brand? Type "Yes" to confirm.</p>
+            <p className="text-white mb-4">Do you really want to remove this brand? Type Yes to confirm.</p>
             <input
               type="text"
               value={showConfirm.input}
