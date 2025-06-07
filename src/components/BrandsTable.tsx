@@ -56,16 +56,21 @@ const BrandsTable = ({ initialBrands }: { initialBrands: Brand[] }) => {
     editorProps: {
       handleKeyDown: (view, event) => {
         console.log("TipTap KeyDown (Brand Edit):", event.key, event.ctrlKey || event.metaKey); // Debug
-        if (event.ctrlKey || event.metaKey || event.key === "Enter") {
+        // Block Enter without Shift to prevent form submission
+        if (event.key === "Enter" && !event.shiftKey) {
           event.preventDefault();
           event.stopPropagation();
-          return false;
+          return true; // Prevent default Enter behavior
         }
+        // Allow Ctrl+C, Ctrl+V, and Cmd+C, Cmd+V for copy-paste
+        if ((event.ctrlKey || event.metaKey) && (event.key === "c" || event.key === "v")) {
+          return false; // Allow default copy-paste behavior
+        }
+        // Allow other key events to proceed normally
         return false;
       },
       handleClick: (view, pos, event) => {
-        event.preventDefault();
-        event.stopPropagation();
+        // Allow default click behavior, including cursor movement and right-click paste
         return false;
       },
     },
@@ -116,10 +121,14 @@ const BrandsTable = ({ initialBrands }: { initialBrands: Brand[] }) => {
     if (editingBrand) {
       setDescription(editingBrand.description || "");
       setMoreDetails(editingBrand.moreDetails || "");
-      moreDetailsEditor?.commands.setContent(editingBrand.moreDetails || "");
-      moreDetailsEditor?.setEditable(true);
+      if (moreDetailsEditor) {
+        moreDetailsEditor.commands.setContent(editingBrand.moreDetails || "");
+        moreDetailsEditor.setEditable(true);
+      }
     } else {
-      moreDetailsEditor?.setEditable(false);
+      if (moreDetailsEditor) {
+        moreDetailsEditor.setEditable(false);
+      }
     }
   }, [editingBrand, moreDetailsEditor]);
 
@@ -336,13 +345,6 @@ const BrandsTable = ({ initialBrands }: { initialBrands: Brand[] }) => {
                 </label>
                 <div
                   className="w-full bg-[#1a1a1a] text-gray-200 border border-yellow-500 rounded-xl shadow-md glow-item text-sm"
-                  onMouseDown={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                  }}
-                  onKeyDown={(e) => {
-                    e.stopPropagation();
-                  }}
                 >
                   {moreDetailsEditor && <TipTapMenu editor={moreDetailsEditor} />}
                   <EditorContent editor={moreDetailsEditor} className="p-3 prose prose-invert max-w-none" />
@@ -393,7 +395,7 @@ const BrandsTable = ({ initialBrands }: { initialBrands: Brand[] }) => {
             >
               Confirm Removal
             </h2>
-            <p className="text-white mb-4">Do you really want to remove this brand? Type &quot;Yes&quot; to confirm.</p>
+            <p className="text-white mb-4">Do you really want to remove this brand? Type "Yes" to confirm.</p>
             <input
               type="text"
               value={showConfirm.input}

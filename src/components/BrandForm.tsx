@@ -55,16 +55,16 @@ const BrandForm: FC<BrandFormProps> = ({ action, initialData }) => {
           event.stopPropagation();
           return true; // Prevent default Enter behavior
         }
-        // Allow Ctrl+V or Cmd+V for pasting
-        if ((event.ctrlKey || event.metaKey) && event.key === "v") {
-          return false; // Allow default paste behavior
+        // Allow Ctrl+C, Ctrl+V, Cmd+C, Cmd+V for copy-paste
+        if ((event.ctrlKey || event.metaKey) && (event.key === "c" || event.key === "v")) {
+          return false; // Allow default copy-paste behavior
         }
-        // Allow other key events to proceed normally
+        // Allow other key events (e.g., typing, arrow keys, selection) to proceed normally
         return false;
       },
       handleClick: (view: any, pos: number, event: MouseEvent) => {
-        // Only prevent default for specific cases if needed, allow paste via right-click
-        return false; // Allow default click behavior, including right-click paste
+        // Allow default click behavior (e.g., cursor placement, text selection, right-click paste)
+        return false;
       },
     },
   });
@@ -142,13 +142,6 @@ const BrandForm: FC<BrandFormProps> = ({ action, initialData }) => {
         </label>
         <div
           className="w-full bg-[#1a1a1a] text-gray-200 border border-yellow-500 rounded-lg shadow-md glow-item text-sm"
-          onMouseDown={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-          }}
-          onKeyDown={(e) => {
-            e.stopPropagation();
-          }}
         >
           {moreDetailsEditor && <TipTapMenu editor={moreDetailsEditor} />}
           <EditorContent editor={moreDetailsEditor} className="p-3 prose prose-invert max-w-none" />
