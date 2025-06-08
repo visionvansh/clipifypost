@@ -138,7 +138,14 @@ export default function ClientVerifyForm({
       const instagramLink = formData.get("instagramLink") as string;
       setAccounts((prev) =>
         prev.map((acc) =>
-          acc.instagramLink === instagramLink ? { ...acc, status, driveLink } : acc
+          acc.instagramLink === instagramLink
+            ? {
+                ...acc,
+                status,
+                driveLink,
+                pushedVerificationCode: status === "Awaiting Code" ? null : acc.pushedVerificationCode,
+              }
+            : acc
         )
       );
       toast.success(`Account status updated to: ${status}`, {
@@ -239,7 +246,7 @@ export default function ClientVerifyForm({
                 required
               />
               <p className="text-xs text-yellow-300 font-semibold mt-1">
-                Note: Drive link must have &apos;Anyone with the link&apos; access, otherwise your account will be rejected.
+                Note: Drive link must have 'Anyone with the link' access, otherwise your account will be rejected.
               </p>
               <button
                 type="submit"

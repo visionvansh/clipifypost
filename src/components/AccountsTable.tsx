@@ -152,7 +152,7 @@ const AccountsTable = ({
                   </td>
                   <td className="px-2 sm:px-4 py-2 text-white truncate">{account.verificationCode || "N/A"}</td>
                   <td className="px-2 sm:px-4 py-2 text-white truncate">
-                    {account.status === "Awaiting Code" && !account.pushedVerificationCode ? (
+                    {(account.status === "Awaiting Code" || account.status === "pending") && !account.pushedVerificationCode ? (
                       <TickButton
                         onClick={() => handleButtonClick(account.id)}
                         disabled={false}
