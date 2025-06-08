@@ -245,8 +245,8 @@ export default function ClientVerifyForm({
                 className="w-full p-3 sm:p-4 bg-[#1a1a1a] text-gray-200 border border-yellow-500 rounded-xl focus:outline-none focus:border-yellow-400 transition-all shadow-md glow-item text-sm"
                 required
               />
-            <p className="text-xs text-yellow-300 font-semibold mt-1">
-  Note: Drive link must have \'Anyone with the link access\', otherwise your account will be rejected.
+<p className="text-xs text-yellow-300 font-semibold mt-1">
+  Note: Drive link must have {"'Anyone with the link access'"}, otherwise your account will be rejected.
 </p>
               <button
                 type="submit"
