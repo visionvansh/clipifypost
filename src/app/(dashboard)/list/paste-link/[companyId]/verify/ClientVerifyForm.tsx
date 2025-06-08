@@ -245,9 +245,9 @@ export default function ClientVerifyForm({
                 className="w-full p-3 sm:p-4 bg-[#1a1a1a] text-gray-200 border border-yellow-500 rounded-xl focus:outline-none focus:border-yellow-400 transition-all shadow-md glow-item text-sm"
                 required
               />
-              <p className="text-xs text-yellow-300 font-semibold mt-1">
-                Note: Drive link must have 'Anyone with the link' access, otherwise your account will be rejected.
-              </p>
+            <p className="text-xs text-yellow-300 font-semibold mt-1">
+  Note: Drive link must have \'Anyone with the link access\', otherwise your account will be rejected.
+</p>
               <button
                 type="submit"
                 className="w-full bg-gradient-to-r from-green-700 to-green-900 text-white py-2 px-4 sm:p-4 rounded-xl hover:from-green-800 hover:to-green-950 hover:shadow-[0_0_15px_rgba(34,197,94,0.8)] disabled:bg-gray-600 disabled:cursor-not-allowed transition-all shadow-md text-base font-bold tracking-wide transform hover:scale-105 flex items-center justify-center gap-2 glow-item"
